@@ -27,3 +27,5 @@ def test_prepare_arch_b_smoke_dataset_writes_input_target_and_caption(tmp_path):
     written = prepare_arch_b_dataset(source, prepared, limit=1)
     assert len(written) == 1
     assert (prepared / "pairs" / "001_input.jpg").exists()
+    assert (prepared / "pairs" / "001_target.jpg").exists()
+    assert (prepared / "pairs" / "001.txt").exists()
