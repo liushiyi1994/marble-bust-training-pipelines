@@ -10,6 +10,7 @@ from PIL import Image, ImageEnhance, ImageOps
 
 
 DEFAULT_DATASET_ID = "huggan/CelebA-faces-with-attributes"
+MARKER_FILENAME = ".demo_bootstrap_dataset.json"
 
 
 @dataclass(frozen=True)
@@ -19,17 +20,42 @@ class DemoRecord:
 
 
 def _reset_output_root(output_root: Path) -> None:
-    if output_root.exists():
-        if not output_root.is_dir():
-            raise ValueError(f"{output_root} must be a directory")
-        shutil.rmtree(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
 
 
-def _load_records_from_dataset(dataset_id: str, count: int) -> list[dict[str, Any]]:
+def _output_root_is_bootstrapped(output_root: Path) -> bool:
+    return (output_root / MARKER_FILENAME).is_file()
+
+
+def _prepare_output_root(output_root: Path, force: bool) -> None:
+    if not output_root.exists():
+        output_root.mkdir(parents=True, exist_ok=True)
+        return
+    if not output_root.is_dir():
+        raise ValueError(f"{output_root} must be a directory")
+    if not any(output_root.iterdir()):
+        return
+    if force or _output_root_is_bootstrapped(output_root):
+        shutil.rmtree(output_root)
+        output_root.mkdir(parents=True, exist_ok=True)
+        return
+    raise ValueError(f"{output_root} already exists and is not a demo-bootstrap output; use force=True to replace it")
+
+
+def _load_dataset(dataset_id: str, count: int) -> Iterable[dict[str, Any]]:
     from datasets import load_dataset
 
-    dataset = load_dataset(dataset_id, split=f"train[:{count}]")
+    return load_dataset(dataset_id, split=f"train[:{count}]")
+
+
+def _load_records_from_dataset(dataset_id: str, count: int) -> list[dict[str, Any]]:
+    try:
+        dataset = _load_dataset(dataset_id, count)
+    except Exception as exc:  # pragma: no cover - exercised via unit tests
+        raise RuntimeError(
+            f"failed to load demo dataset {dataset_id!r}; check network access, Hugging Face authentication, "
+            "or install the datasets package"
+        ) from exc
     return [dict(record) for record in dataset]
 
 
@@ -74,12 +100,17 @@ def bootstrap_demo_dataset(
     count: int = 40,
     dataset_id: str = DEFAULT_DATASET_ID,
     trigger_word: str = "mrblbust",
+    force: bool = False,
     records: Iterable[dict[str, Any]] | None = None,
 ) -> Path:
+    if count < 1:
+        raise ValueError("count must be >= 1")
     source_records = list(records) if records is not None else _load_records_from_dataset(dataset_id, count)
+    if len(source_records) < count:
+        raise ValueError(f"requested {count} records but only received {len(source_records)}")
     normalized = _normalize_records(source_records[:count])
 
-    _reset_output_root(output_root)
+    _prepare_output_root(output_root, force=force)
     busts_dir = output_root / "busts"
     pairs_dir = output_root / "pairs"
     busts_dir.mkdir(parents=True, exist_ok=True)
@@ -116,4 +147,7 @@ def bootstrap_demo_dataset(
         )
 
     (output_root / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (output_root / MARKER_FILENAME).write_text(
+        json.dumps({"dataset_id": dataset_id, "count": count, "trigger_word": trigger_word}, indent=2)
+    )
     return output_root
