@@ -7,6 +7,11 @@ def _must_exist(path: Path, message: str) -> None:
         raise ValueError(message)
 
 
+def _must_be_dir(path: Path, message: str) -> None:
+    if not path.is_dir():
+        raise ValueError(message)
+
+
 def _load_manifest(root: Path) -> None:
     manifest = root / "manifest.json"
     if not manifest.is_file():
@@ -25,6 +30,7 @@ def validate_dataset(root: Path, architecture: str, trigger_word: str) -> None:
 
     subdir = root / ("busts" if architecture == "A" else "pairs")
     _must_exist(subdir, f"{subdir.name} directory is required")
+    _must_be_dir(subdir, f"{subdir.name} path must be a directory")
     txt_files = list(subdir.glob("*.txt"))
     if not txt_files:
         raise ValueError("at least one caption file is required")

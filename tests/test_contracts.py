@@ -69,6 +69,15 @@ def test_dataset_validation_rejects_missing_trigger_word(tmp_path):
         validate_dataset(root=root, architecture="A", trigger_word="mrblbust")
 
 
+def test_dataset_validation_rejects_non_directory_subdir(tmp_path):
+    root = tmp_path / "dataset"
+    root.mkdir()
+    (root / "busts").write_text("not a directory")
+    (root / "manifest.json").write_text("{}")
+    with pytest.raises(ValueError, match="busts path must be a directory"):
+        validate_dataset(root=root, architecture="A", trigger_word="mrblbust")
+
+
 def test_required_env_vars_for_training_scope():
     assert required_env_vars(scope="training") == ["HF_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
 
@@ -94,6 +103,19 @@ def test_validate_env_rejects_missing_vars():
             env={
                 "HF_TOKEN": "token",
                 "AWS_ACCESS_KEY_ID": "id",
+            },
+        )
+
+
+def test_validate_env_rejects_blank_vars():
+    with pytest.raises(ValueError, match="missing required env vars for scope 'runpod': AWS_SECRET_ACCESS_KEY, RUNPOD_API_KEY"):
+        validate_env(
+            "runpod",
+            env={
+                "HF_TOKEN": "token",
+                "AWS_ACCESS_KEY_ID": "id",
+                "AWS_SECRET_ACCESS_KEY": "   ",
+                "RUNPOD_API_KEY": "",
             },
         )
 

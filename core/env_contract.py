@@ -14,6 +14,6 @@ def required_env_vars(scope: str) -> list[str]:
 def validate_env(scope: str, env: Mapping[str, str] | None = None) -> None:
     env_vars = os.environ if env is None else env
     required = required_env_vars(scope)
-    missing = [name for name in required if name not in env_vars]
+    missing = [name for name in required if name not in env_vars or not str(env_vars[name]).strip()]
     if missing:
         raise ValueError(f"missing required env vars for scope '{scope}': {', '.join(missing)}")
