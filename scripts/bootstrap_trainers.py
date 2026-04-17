@@ -40,7 +40,8 @@ def ensure_checkout(name: str, dry_run: bool = False) -> None:
 
     commands: list[list[str]] = []
     if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
+        if not dry_run:
+            path.parent.mkdir(parents=True, exist_ok=True)
         commands.append(_git_command("clone", trainer["repo"], str(path)))
     commands.append(_git_command("-C", str(path), "fetch", "--all"))
     commands.append(_git_command("-C", str(path), "checkout", trainer["commit"]))

@@ -87,11 +87,15 @@ def test_main_help_is_safe(monkeypatch, capsys):
 def test_main_dry_run_produces_no_side_effects(monkeypatch, capsys, tmp_path):
     recorded = []
     monkeypatch.setattr(bootstrap.subprocess, "run", lambda *args, **kwargs: recorded.append((args, kwargs)))
-    monkeypatch.setattr(bootstrap, "ROOT", tmp_path / "repo")
+    root = tmp_path / "repo"
+    monkeypatch.setattr(bootstrap, "ROOT", root)
     monkeypatch.setitem(TRAINERS["ai_toolkit"], "directory", ".vendor/ai-toolkit")
 
     bootstrap.main(["--trainer", "ai_toolkit", "--dry-run"])
 
     assert recorded == []
+    assert not root.exists()
+    assert not (root / ".vendor").exists()
+    assert not (root / ".vendor" / "ai-toolkit").exists()
     captured = capsys.readouterr()
     assert "dry-run" in captured.out.lower()
