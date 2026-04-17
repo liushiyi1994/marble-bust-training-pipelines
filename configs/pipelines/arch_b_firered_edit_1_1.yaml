@@ -1,0 +1,9 @@
+pipeline_name: arch_b_firered_edit_1_1
+architecture: B
+backend: diffsynth
+base_model: {repo: FireRedTeam/FireRed-Image-Edit-1.1, revision: main, dtype: bfloat16}
+training: {lora_rank: 32, lora_alpha: 32, learning_rate: 1.0e-4, steps: 2000, batch_size: 1, gradient_accumulation: 4, trigger_word: mrblbust, seed: 42, resolution: 1024}
+dataset: {source: /workspace/shared/marble-bust-data/v1, manifest: manifest.json, arch_a_subdir: busts, arch_b_subdir: pairs, caption_extension: .txt}
+output: {run_root: /workspace/output, lora_name: marble_bust_firered_v1, save_every_n_steps: 500, s3_output_uri: s3://marble-bust-loras/}
+hardware: {target_gpu: A100-80GB, mixed_precision: bf16}
+backend_options: {quantize_frozen_modules: false, sample_every_n_steps: 250, extra: {}}
