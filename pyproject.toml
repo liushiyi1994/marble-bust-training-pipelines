@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "marble-bust-training"
 version = "0.1.0"
-description = "Separated marble bust LoRA training pipelines"
+description = "Separated marble bust training pipelines"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "boto3>=1.35",
