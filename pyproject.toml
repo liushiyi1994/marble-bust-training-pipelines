@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marble-bust-training"
+version = "0.1.0"
+description = "Separated marble bust LoRA training pipelines"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "boto3>=1.35",
+  "jinja2>=3.1",
+  "pydantic>=2.9",
+  "pyyaml>=6.0.2",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3"]
+
+[tool.setuptools.packages.find]
+include = ["core*", "backends*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

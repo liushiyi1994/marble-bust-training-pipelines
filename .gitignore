@@ -1,6 +1,10 @@
-.worktrees/
 __pycache__/
 .pytest_cache/
 .venv/
+.mypy_cache/
+*.pyc
+.DS_Store
 runs/
 .vendor/
+dist/
+build/
