@@ -107,3 +107,56 @@ def test_prepare_arch_a_accepts_png_images(tmp_path):
 
     assert written == [prepared / "busts" / "000.txt"]
     assert (prepared / "busts" / "000.png").read_bytes() == b"png"
+
+
+def test_prepare_arch_a_missing_image_leaves_destination_untouched(tmp_path):
+    source = tmp_path / "src"
+    busts = source / "busts"
+    busts.mkdir(parents=True)
+    (busts / "001.txt").write_text("a <mrblbust> marble statue bust")
+    prepared = tmp_path / "prepared"
+    stale = prepared / "busts"
+    stale.mkdir(parents=True)
+    (stale / "stale.txt").write_text("keep me")
+
+    with pytest.raises(ValueError, match="missing image for 001.txt"):
+        prepare_arch_a_dataset(source, prepared)
+
+    assert (stale / "stale.txt").read_text() == "keep me"
+    assert (stale / "stale.txt").exists()
+
+
+def test_prepare_arch_b_missing_input_image_leaves_destination_untouched(tmp_path):
+    source = tmp_path / "src"
+    pairs = source / "pairs"
+    pairs.mkdir(parents=True)
+    (pairs / "001_target.jpg").write_bytes(b"out")
+    (pairs / "001.txt").write_text("transform into <mrblbust> marble statue bust")
+    prepared = tmp_path / "prepared"
+    stale = prepared / "pairs"
+    stale.mkdir(parents=True)
+    (stale / "stale.txt").write_text("keep me")
+
+    with pytest.raises(ValueError, match="missing input image for pair 001"):
+        prepare_arch_b_dataset(source, prepared)
+
+    assert (stale / "stale.txt").read_text() == "keep me"
+    assert (stale / "stale.txt").exists()
+
+
+def test_prepare_arch_b_missing_target_image_leaves_destination_untouched(tmp_path):
+    source = tmp_path / "src"
+    pairs = source / "pairs"
+    pairs.mkdir(parents=True)
+    (pairs / "001_input.jpg").write_bytes(b"in")
+    (pairs / "001.txt").write_text("transform into <mrblbust> marble statue bust")
+    prepared = tmp_path / "prepared"
+    stale = prepared / "pairs"
+    stale.mkdir(parents=True)
+    (stale / "stale.txt").write_text("keep me")
+
+    with pytest.raises(ValueError, match="missing target image for pair 001"):
+        prepare_arch_b_dataset(source, prepared)
+
+    assert (stale / "stale.txt").read_text() == "keep me"
+    assert (stale / "stale.txt").exists()

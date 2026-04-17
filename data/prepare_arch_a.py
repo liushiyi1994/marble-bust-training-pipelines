@@ -26,23 +26,33 @@ def _find_image_path(source_dir: Path, stem: str) -> Path:
     raise ValueError(f"missing image for {stem}.txt")
 
 
+def _collect_examples(source_dir: Path, stems: list[str]) -> list[tuple[Path, Path]]:
+    examples = []
+    for stem in stems:
+        image_src = _find_image_path(source_dir, stem)
+        caption_src = source_dir / f"{stem}.txt"
+        if not caption_src.is_file():
+            raise ValueError(f"missing caption for {image_src.name}")
+        examples.append((image_src, caption_src))
+    return examples
+
+
 def prepare_arch_a_dataset(source_root: Path, destination_root: Path, limit: int | None = None) -> list[Path]:
     source_dir = source_root / "busts"
-    output_dir = destination_root / "busts"
     _validate_source_dir(source_dir)
-    _reset_output_dir(output_dir)
     stems = sorted({path.stem for path in source_dir.glob("*.txt")})
     if limit is not None:
         stems = stems[:limit]
     if not stems:
         raise ValueError("no caption stems found in busts")
+    examples = _collect_examples(source_dir, stems)
+    output_dir = destination_root / "busts"
+    _reset_output_dir(output_dir)
     written = []
-    for stem in stems:
-        image_src = _find_image_path(source_dir, stem)
+    for image_src, caption_src in examples:
         image_dst = output_dir / image_src.name
-        caption_src = source_dir / f"{stem}.txt"
         caption_dst = output_dir / caption_src.name
         shutil.copy2(image_src, image_dst)
         shutil.copy2(caption_src, caption_dst)
-        written.append(output_dir / f"{stem}.txt")
+        written.append(caption_dst)
     return written
