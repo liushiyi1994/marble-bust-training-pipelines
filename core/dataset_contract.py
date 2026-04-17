@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -6,8 +7,22 @@ def _must_exist(path: Path, message: str) -> None:
         raise ValueError(message)
 
 
+def _load_manifest(root: Path) -> None:
+    manifest = root / "manifest.json"
+    if not manifest.is_file():
+        raise ValueError("manifest.json is required and must be a file")
+    try:
+        json.loads(manifest.read_text())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("manifest.json must contain valid JSON") from exc
+
+
 def validate_dataset(root: Path, architecture: str, trigger_word: str) -> None:
-    _must_exist(root / "manifest.json", "manifest.json is required")
+    if architecture not in {"A", "B"}:
+        raise ValueError(f"unsupported architecture {architecture}")
+
+    _load_manifest(root)
+
     subdir = root / ("busts" if architecture == "A" else "pairs")
     _must_exist(subdir, f"{subdir.name} directory is required")
     txt_files = list(subdir.glob("*.txt"))
