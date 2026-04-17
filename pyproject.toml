@@ -9,7 +9,9 @@ description = "Separated marble bust training pipelines"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "boto3>=1.35",
+  "datasets>=3.0",
   "jinja2>=3.1",
+  "pillow>=10.0",
   "pydantic>=2.9",
   "pyyaml>=6.0.2",
   "typer>=0.12",
@@ -19,7 +21,7 @@ dependencies = [
 test = ["pytest>=8.3"]
 
 [tool.setuptools.packages.find]
-include = ["core*", "backends*"]
+include = ["core*", "backends*", "data*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
