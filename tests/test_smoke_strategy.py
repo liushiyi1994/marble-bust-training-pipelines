@@ -12,7 +12,7 @@ def test_5090_mandatory_smoke_target_is_klein():
     assert "arch_a_klein_4b" in strategy["must_run_locally"]
 
 
-def test_5090_marks_flux2_dev_runpod_first():
+def test_5090_marks_flux2_dev_runpod_first_for_artifact_smoke():
     strategy = classify_local_smoke_strategy(gpu_name="NVIDIA GeForce RTX 5090", total_vram_mib=32607)
 
     assert "arch_a_flux2_dev" in strategy["runpod_first"]

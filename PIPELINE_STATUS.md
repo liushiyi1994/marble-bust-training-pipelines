@@ -1,15 +1,25 @@
 # PIPELINE_STATUS
 
-| Pipeline | Backend | Local validation | Local smoke | RunPod smoke | Notes |
-|---|---|---|---|---|---|
-| arch_a_klein_4b | ai_toolkit | pending | pending | pending | mandatory local smoke target |
-| arch_a_flux2_dev | ai_toolkit | pending | runpod-first | pending | bootstrap locally, smoke on higher-VRAM cloud GPU |
-| arch_a_qwen_image_2512 | diffsynth | pending | runpod-first | pending | bootstrap locally, smoke on higher-VRAM cloud GPU |
-| arch_a_z_image | diffsynth | pending | try-local | pending | attempt on local RTX 5090 after klein smoke |
-| arch_b_qwen_edit_2511 | diffsynth | pending | runpod-first | pending | paired edit training, cloud-first smoke |
-| arch_b_kontext_dev | ai_toolkit | pending | try-local | pending | paired edit training, local attempt after klein smoke |
-| arch_b_firered_edit_1_1 | diffsynth | pending | runpod-first | pending | paired edit training, cloud-first smoke |
+| Pipeline | Backend | Local validation | Local first-step | Local artifact smoke | RunPod smoke | Notes |
+|---|---|---|---|---|---|---|
+| arch_a_klein_4b | ai_toolkit | pass | pending | timeout | pending | real AI Toolkit smoke on RTX 5090 reached model load, baseline sample generation, and entered the train loop, but produced no first completed step or artifact after about 8 minutes at 10 images / 100 steps |
+| arch_a_flux2_dev | ai_toolkit | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
+| arch_a_qwen_image_2512 | diffsynth | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
+| arch_a_z_image | diffsynth | pass | pending | timeout | pending | initial real smoke failed until the `diffsynth` package was installed into the Python 3.12 env; bounded retry spent the full 3-minute window downloading Z-Image weights with no trainer init yet |
+| arch_b_qwen_edit_2511 | diffsynth | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
+| arch_b_kontext_dev | ai_toolkit | pass | pending | timeout | pending | bounded real smoke attempt spent the full 3-minute window at Hugging Face file fetch for `black-forest-labs/FLUX.1-Kontext-dev`; no train step or artifact yet |
+| arch_b_firered_edit_1_1 | diffsynth | pass | pending | runpod-first | blocked | `runpod/launch.sh arch_b_firered_edit_1_1` failed immediately in validation because `/workspace/shared/marble-bust-data/v1/manifest.json` was not mounted; the wrapper also targets full `train.py`, not `smoke_test.py` |
 
-Local smoke means a real short training run on the local RTX 5090 using the smoke dataset path.
+Local first-step means a real one-step local verification run using the demo dataset path and local verification run root.
+
+Local artifact smoke means a longer bounded local run on the RTX 5090 using the smoke dataset path.
 
 RunPod smoke means a 10-image / 100-step acceptance smoke run on the target cloud GPU.
+
+Verification notes:
+
+- Local validation `pass` means `scripts/validate.py` and `scripts/train.py --dry-run` passed for all seven pipelines against temporary local config copies that pointed to the demo dataset path and a local run root. The checked-in `/workspace/shared` dataset contract remains unchanged for real training runs.
+- Local first-step is the new pre-RunPod gate and remains `pending` until `scripts/verify_local.py` proves a pipeline can complete one real local step.
+- Existing historical local runtime attempts are preserved under `Local artifact smoke`; they are not evidence of a completed first-step verification unless they actually reached a completed step.
+- The documented `scripts/bootstrap_demo_dataset.py` path did not work against the default HF dataset source in this environment, so the local demo dataset path was bootstrapped with the same repo code through its tested `records=` path.
+- Real trainer attempts were run from `conda run -n ml-gpu` on Python 3.12. The base shell env here is Python 3.13, which is outside the repo's declared support range and could not install the pinned AI Toolkit runtime cleanly.

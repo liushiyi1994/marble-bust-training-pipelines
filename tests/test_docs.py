@@ -15,8 +15,16 @@ def test_readme_mentions_all_seven_pipelines():
         assert pipeline in readme
 
 
-def test_pipeline_status_mentions_local_and_runpod_smoke():
+def test_readme_mentions_verify_local_entrypoint():
+    readme = Path("README.md").read_text()
+
+    assert "scripts/verify_local.py" in readme
+    assert "Local first-step" in readme
+
+
+def test_pipeline_status_mentions_first_step_and_artifact_smoke():
     status = Path("PIPELINE_STATUS.md").read_text()
 
-    assert "Local smoke" in status
+    assert "Local first-step" in status
+    assert "Local artifact smoke" in status
     assert "RunPod smoke" in status
