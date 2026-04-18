@@ -1,0 +1,13 @@
+{
+  "name": "marble-bust-training-base",
+  "containerDiskInGb": 40,
+  "volumeInGb": 100,
+  "mountPath": "/workspace/shared",
+  "env": [
+    "HF_TOKEN",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "WANDB_API_KEY",
+    "RUNPOD_API_KEY"
+  ]
+}
