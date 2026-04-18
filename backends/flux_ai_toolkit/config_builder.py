@@ -139,6 +139,12 @@ def _build_process(cfg, dataset_dir: Path, training_dir: Path) -> dict:
             "arch": model_arch,
         },
     }
+    if cfg.backend_options.extra.get("cache_latents_to_disk"):
+        process["datasets"][0]["cache_latents_to_disk"] = True
+    if cfg.backend_options.extra.get("disable_sampling"):
+        process["train"]["disable_sampling"] = True
+    if cfg.backend_options.extra.get("skip_first_sample"):
+        process["train"]["skip_first_sample"] = True
 
     if cfg.architecture == "B":
         stage_root = training_dir / "ai_toolkit" / cfg.pipeline_name / "pairs"

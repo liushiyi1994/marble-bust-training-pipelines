@@ -54,6 +54,15 @@ Run a bounded one-step local verification against the demo dataset path and a lo
 
 This path is separate from actual training and separate from the longer local artifact-smoke path.
 
+The local verification profile is intentionally lighter than real training:
+
+- forces `steps=1`
+- forces `gradient_accumulation=1`
+- caps resolution at `512`
+- for `ai_toolkit`, enables quantized frozen modules, latent caching, and disables sampling
+
+That keeps local verification focused on "can this pipeline validate, prepare data, start the backend, and complete a real trainer step" without changing the checked-in production pipeline configs.
+
 ## Local Artifact Smoke
 
 Run a local smoke with the backend-specific smoke entrypoint wired through the shared script:

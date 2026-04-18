@@ -48,6 +48,49 @@ def test_builds_flux2_dev_job_config(tmp_path):
     assert process["model"]["arch"] == "flux2"
 
 
+def test_build_ai_toolkit_job_can_enable_dataset_latent_caching(tmp_path):
+    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_klein_4b.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "backend_options": cfg.backend_options.model_copy(
+                update={"extra": {"cache_latents_to_disk": True}}
+            )
+        }
+    )
+    prepared = tmp_path / "prepared"
+    busts = prepared / "busts"
+    busts.mkdir(parents=True)
+    (busts / "001.jpg").write_bytes(b"image")
+    (busts / "001.txt").write_text("a marble bust with <mrblbust> details")
+
+    output = build_ai_toolkit_job(cfg, dataset_dir=prepared, training_dir=tmp_path / "runs")
+
+    dataset = output["config"]["process"][0]["datasets"][0]
+    assert dataset["cache_latents_to_disk"] is True
+
+
+def test_build_ai_toolkit_job_can_disable_sampling_for_local_verify(tmp_path):
+    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_klein_4b.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "backend_options": cfg.backend_options.model_copy(
+                update={"extra": {"disable_sampling": True, "skip_first_sample": True}}
+            )
+        }
+    )
+    prepared = tmp_path / "prepared"
+    busts = prepared / "busts"
+    busts.mkdir(parents=True)
+    (busts / "001.jpg").write_bytes(b"image")
+    (busts / "001.txt").write_text("a marble bust with <mrblbust> details")
+
+    output = build_ai_toolkit_job(cfg, dataset_dir=prepared, training_dir=tmp_path / "runs")
+
+    train_cfg = output["config"]["process"][0]["train"]
+    assert train_cfg["disable_sampling"] is True
+    assert train_cfg["skip_first_sample"] is True
+
+
 def test_builds_kontext_job_config_and_stages_paired_dataset(tmp_path):
     cfg = load_pipeline_config(Path("configs/pipelines/arch_b_kontext_dev.yaml"))
     prepared = tmp_path / "prepared"

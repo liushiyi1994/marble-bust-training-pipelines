@@ -44,6 +44,80 @@ def test_write_local_verify_config_rewrites_only_local_fields(tmp_path):
     assert rewritten["backend"] == original["backend"]
 
 
+def test_write_local_verify_config_uses_lightweight_training_profile(tmp_path):
+    dataset_root = tmp_path / "real-dataset"
+    demo_root = tmp_path / "demo-dataset"
+    run_root = tmp_path / "verify-runs"
+    dataset_root.mkdir()
+    demo_root.mkdir()
+
+    source = _write_config_copy(tmp_path, "arch_a_klein_4b", dataset_root)
+
+    verify_config = write_local_verify_config(
+        source_config_path=source,
+        dataset_root=demo_root,
+        run_root=run_root,
+        run_id="first-step-test",
+    )
+
+    rewritten = yaml.safe_load(verify_config.read_text())
+    original = yaml.safe_load(source.read_text())
+
+    assert original["training"]["gradient_accumulation"] == 4
+    assert rewritten["training"]["gradient_accumulation"] == 1
+    assert original["training"]["resolution"] == 1024
+    assert rewritten["training"]["resolution"] == 512
+
+
+def test_write_local_verify_config_enables_ai_toolkit_latent_caching(tmp_path):
+    dataset_root = tmp_path / "real-dataset"
+    demo_root = tmp_path / "demo-dataset"
+    run_root = tmp_path / "verify-runs"
+    dataset_root.mkdir()
+    demo_root.mkdir()
+
+    source = _write_config_copy(tmp_path, "arch_a_klein_4b", dataset_root)
+
+    verify_config = write_local_verify_config(
+        source_config_path=source,
+        dataset_root=demo_root,
+        run_root=run_root,
+        run_id="first-step-test",
+    )
+
+    rewritten = yaml.safe_load(verify_config.read_text())
+    original = yaml.safe_load(source.read_text())
+
+    assert original["backend_options"]["extra"] == {}
+    assert rewritten["backend_options"]["extra"]["cache_latents_to_disk"] is True
+    assert rewritten["backend_options"]["extra"]["disable_sampling"] is True
+    assert rewritten["backend_options"]["extra"]["skip_first_sample"] is True
+    assert original["backend_options"]["quantize_frozen_modules"] is False
+    assert rewritten["backend_options"]["quantize_frozen_modules"] is True
+
+
+def test_write_local_verify_config_leaves_diffsynth_backend_extra_unchanged(tmp_path):
+    dataset_root = tmp_path / "real-dataset"
+    demo_root = tmp_path / "demo-dataset"
+    run_root = tmp_path / "verify-runs"
+    dataset_root.mkdir()
+    demo_root.mkdir()
+
+    source = _write_config_copy(tmp_path, "arch_a_z_image", dataset_root)
+
+    verify_config = write_local_verify_config(
+        source_config_path=source,
+        dataset_root=demo_root,
+        run_root=run_root,
+        run_id="first-step-test",
+    )
+
+    rewritten = yaml.safe_load(verify_config.read_text())
+
+    assert rewritten["backend"] == "diffsynth"
+    assert rewritten["backend_options"]["extra"] == {}
+
+
 def test_verify_local_main_dispatches_ai_toolkit_backend(tmp_path, monkeypatch):
     config_path = tmp_path / "arch_a_klein_4b.yaml"
     config_path.write_text("pipeline_name: arch_a_klein_4b\n")
