@@ -42,3 +42,61 @@ def test_write_local_verify_config_rewrites_only_local_fields(tmp_path):
     assert rewritten["output"]["save_every_n_steps"] == 1
     assert rewritten["base_model"] == original["base_model"]
     assert rewritten["backend"] == original["backend"]
+
+
+def test_verify_local_main_dispatches_ai_toolkit_backend(tmp_path, monkeypatch):
+    config_path = tmp_path / "arch_a_klein_4b.yaml"
+    config_path.write_text("pipeline_name: arch_a_klein_4b\n")
+    dataset_root = tmp_path / "demo"
+    run_root = tmp_path / "verify"
+    dataset_root.mkdir()
+    run_root.mkdir()
+    recorded = []
+
+    class DummyConfig:
+        pipeline_name = "arch_a_klein_4b"
+        backend = "ai_toolkit"
+
+    monkeypatch.setattr("scripts.verify_local.load_pipeline_config", lambda path: DummyConfig())
+    monkeypatch.setattr(
+        "scripts.verify_local.run_ai_toolkit_local_verify",
+        lambda **kwargs: recorded.append(kwargs) or {"pipeline_name": "arch_a_klein_4b", "status": "pass"},
+    )
+
+    from scripts.verify_local import verify_local_main
+
+    result = verify_local_main(config_path=config_path, dataset_root=dataset_root, run_root=run_root)
+
+    assert result["status"] == "pass"
+    assert recorded[0]["config_path"] == config_path
+    assert recorded[0]["dataset_root"] == dataset_root
+    assert recorded[0]["run_root"] == run_root
+
+
+def test_verify_local_main_dispatches_diffsynth_backend(tmp_path, monkeypatch):
+    config_path = tmp_path / "arch_a_z_image.yaml"
+    config_path.write_text("pipeline_name: arch_a_z_image\n")
+    dataset_root = tmp_path / "demo"
+    run_root = tmp_path / "verify"
+    dataset_root.mkdir()
+    run_root.mkdir()
+    recorded = []
+
+    class DummyConfig:
+        pipeline_name = "arch_a_z_image"
+        backend = "diffsynth"
+
+    monkeypatch.setattr("scripts.verify_local.load_pipeline_config", lambda path: DummyConfig())
+    monkeypatch.setattr(
+        "scripts.verify_local.run_diffsynth_local_verify",
+        lambda **kwargs: recorded.append(kwargs) or {"pipeline_name": "arch_a_z_image", "status": "pass"},
+    )
+
+    from scripts.verify_local import verify_local_main
+
+    result = verify_local_main(config_path=config_path, dataset_root=dataset_root, run_root=run_root)
+
+    assert result["status"] == "pass"
+    assert recorded[0]["config_path"] == config_path
+    assert recorded[0]["dataset_root"] == dataset_root
+    assert recorded[0]["run_root"] == run_root
