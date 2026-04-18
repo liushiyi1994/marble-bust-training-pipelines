@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from core.config_schema import load_pipeline_config
+from core.training_flow import run_training
 from data.prepare_arch_a import prepare_arch_a_dataset
 from data.prepare_arch_b import prepare_arch_b_dataset
 
@@ -43,8 +44,6 @@ def run_ai_toolkit_smoke(
 
         smoke_config_path = temp_root / "smoke.yaml"
         smoke_config_path.write_text(yaml.safe_dump(smoke_config, sort_keys=False))
-
-        from scripts.train import run_training
 
         return run_training(
             config_path=smoke_config_path,

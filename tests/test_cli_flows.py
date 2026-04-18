@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from core.training_flow import run_training as shared_run_training
 from scripts.export_weights import export_final_weight
 from scripts.train import run_training
 from scripts.validate import validate_pipeline
@@ -55,6 +56,28 @@ def test_validate_pipeline_returns_loaded_config(tmp_path):
     assert cfg.pipeline_name == "arch_a_klein_4b"
 
 
+def test_run_training_records_phases_in_dry_run(tmp_path):
+    dataset_root = _make_arch_a_dataset(tmp_path / "dataset")
+    config_path = _write_config_copy(tmp_path, "arch_a_klein_4b", dataset_root)
+    events: list[tuple[str, dict[str, object]]] = []
+
+    result = shared_run_training(
+        config_path=config_path,
+        dry_run=True,
+        env=_COMPLETE_ENV,
+        run_id="run-001",
+        phase_recorder=lambda phase, payload: events.append((phase, payload)),
+    )
+
+    assert result["pipeline_name"] == "arch_a_klein_4b"
+    assert [phase for phase, _ in events] == [
+        "config.validated",
+        "dataset.prepared",
+        "config.resolved_written",
+        "backend.config_written",
+    ]
+
+
 def test_run_training_dry_run_writes_ai_toolkit_backend_snapshot(tmp_path, monkeypatch):
     dataset_root = _make_arch_a_dataset(tmp_path / "dataset")
     config_path = _write_config_copy(tmp_path, "arch_a_klein_4b", dataset_root)
@@ -64,7 +87,7 @@ def test_run_training_dry_run_writes_ai_toolkit_backend_snapshot(tmp_path, monke
         called.append((args, kwargs))
         raise AssertionError("run_ai_toolkit should not be called in dry-run mode")
 
-    monkeypatch.setattr("scripts.train.run_ai_toolkit", fake_run_ai_toolkit)
+    monkeypatch.setattr("core.training_flow.run_ai_toolkit", fake_run_ai_toolkit)
 
     result = run_training(config_path=config_path, dry_run=True, env=_COMPLETE_ENV, run_id="run-001")
 
@@ -92,7 +115,7 @@ def test_run_training_dry_run_writes_diffsynth_command_snapshot(tmp_path, monkey
         called.append((args, kwargs))
         raise AssertionError("run_diffsynth should not be called in dry-run mode")
 
-    monkeypatch.setattr("scripts.train.run_diffsynth", fake_run_diffsynth)
+    monkeypatch.setattr("core.training_flow.run_diffsynth", fake_run_diffsynth)
 
     result = run_training(config_path=config_path, dry_run=True, env=_COMPLETE_ENV, run_id="run-001")
 
