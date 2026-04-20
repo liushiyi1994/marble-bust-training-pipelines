@@ -10,7 +10,6 @@ def classify_local_smoke_strategy(gpu_name: str, total_vram_mib: int) -> dict[st
     try_locally = ["arch_a_z_image", "arch_b_kontext_dev"] if total_vram_mib >= 32000 else []
     runpod_first = [
         "arch_a_flux2_dev",
-        "arch_a_qwen_image_2512",
         "arch_b_qwen_edit_2511",
         "arch_b_firered_edit_1_1",
     ]

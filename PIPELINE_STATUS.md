@@ -4,7 +4,6 @@
 |---|---|---|---|---|---|---|
 | arch_a_klein_4b | ai_toolkit | pass | blocked | timeout | pending | real AI Toolkit smoke on RTX 5090 reached model load, baseline sample generation, and entered the train loop, but produced no first completed step or artifact after about 8 minutes at 10 images / 100 steps; later `verify_local.py` attempts with the lightweight profile still OOM-killed WSL before a completed step |
 | arch_a_flux2_dev | ai_toolkit | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
-| arch_a_qwen_image_2512 | diffsynth | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
 | arch_a_z_image | diffsynth | pass | pending | timeout | pending | initial real smoke failed until the `diffsynth` package was installed into the Python 3.12 env; bounded retry spent the full 3-minute window downloading Z-Image weights with no trainer init yet |
 | arch_b_qwen_edit_2511 | diffsynth | pass | pending | runpod-first | pending | local demo-config validate + dry-run passed; no real local verification or local artifact smoke attempted |
 | arch_b_kontext_dev | ai_toolkit | pass | pending | timeout | pending | bounded real smoke attempt spent the full 3-minute window at Hugging Face file fetch for `black-forest-labs/FLUX.1-Kontext-dev`; no train step or artifact yet |
@@ -19,7 +18,7 @@ RunPod smoke means a 10-image / 100-step acceptance smoke run on the target clou
 
 Verification notes:
 
-- Local validation `pass` means `scripts/validate.py` and `scripts/train.py --dry-run` passed for all seven pipelines against temporary local config copies that pointed to the demo dataset path and a local run root. The checked-in `/workspace/shared` dataset contract remains unchanged for real training runs.
+- Local validation `pass` means `scripts/validate.py` and `scripts/train.py --dry-run` passed for all six pipelines against temporary local config copies that pointed to the demo dataset path and a local run root. The checked-in `/workspace/shared` dataset contract remains unchanged for real training runs.
 - Local first-step is the new pre-RunPod gate and remains `pending` until `scripts/verify_local.py` proves a pipeline can complete one real local step.
 - The local verification profile intentionally forces `steps=1`, `gradient_accumulation=1`, caps resolution at `512`, and for `ai_toolkit` enables quantization, latent caching, and disables sampling so the check stays lighter than full local training.
 - Existing historical local runtime attempts are preserved under `Local artifact smoke`; they are not evidence of a completed first-step verification unless they actually reached a completed step.

@@ -16,11 +16,6 @@ _Z_IMAGE_LORA_TARGET_MODULES = "to_q,to_k,to_v,to_out.0,w1,w2,w3"
 _Z_IMAGE_REPO = "Tongyi-MAI/Z-Image"
 _QWEN_EDIT_REPO = "Qwen/Qwen-Image-Edit-2511"
 _MODEL_ID_WITH_ORIGIN_PATHS = {
-    "Qwen/Qwen-Image-2512": (
-        "Qwen/Qwen-Image-2512:transformer/diffusion_pytorch_model*.safetensors,"
-        "Qwen/Qwen-Image:text_encoder/model*.safetensors,"
-        "Qwen/Qwen-Image:vae/diffusion_pytorch_model.safetensors"
-    ),
     _QWEN_EDIT_REPO: (
         "Qwen/Qwen-Image-Edit-2511:transformer/diffusion_pytorch_model*.safetensors,"
         "Qwen/Qwen-Image:text_encoder/model*.safetensors,"

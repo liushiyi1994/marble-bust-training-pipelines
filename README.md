@@ -1,6 +1,6 @@
 # Marble Bust Training Pipelines
 
-Local-first training orchestration for seven marble-bust LoRA pipelines with a hard backend split:
+Local-first training orchestration for six marble-bust LoRA pipelines with a hard backend split:
 
 - `ai_toolkit` for the FLUX-family pipelines
 - `diffsynth` for the Qwen, Z-Image, and FireRed pipelines
@@ -12,6 +12,10 @@ Local-first training orchestration for seven marble-bust LoRA pipelines with a h
    `python -m pip install -e .[test]`
 3. Bootstrap the pinned trainer checkouts:
    `python scripts/bootstrap_trainers.py`
+
+For same-Pod inference after training, install the inference extra as well:
+
+`python -m pip install -e .[test,inference]`
 
 ## Dataset Contract
 
@@ -73,7 +77,7 @@ The current local artifact-smoke strategy is:
 
 - must run locally: `arch_a_klein_4b`
 - try locally: `arch_a_z_image`, `arch_b_kontext_dev`
-- RunPod-first: `arch_a_flux2_dev`, `arch_a_qwen_image_2512`, `arch_b_qwen_edit_2511`, `arch_b_firered_edit_1_1`
+- RunPod-first: `arch_a_flux2_dev`, `arch_b_qwen_edit_2511`, `arch_b_firered_edit_1_1`
 
 ## Training
 
@@ -87,11 +91,39 @@ Generate the backend config and prepared run layout without launching the traine
 
 Export the final normalized weight from a completed run:
 
-`python scripts/export_weights.py runs/arch_a_klein_4b/<run-id>`
+`python scripts/export_weights.py /workspace/output/arch_a_klein_4b/<run-id>`
+
+Without an S3 upload target, completed artifacts remain under the configured `output.run_root`.
+
+## Same-Pod Inference
+
+Generate one output image from a completed training run:
+
+`python scripts/infer_image.py --run-dir /workspace/output/arch_a_klein_4b/<run-id> --input-image /workspace/selfies/me.jpg --persona "stoic roman general"`
+
+Generate a batch from a folder of inputs:
+
+`python scripts/infer_batch.py --run-dir /workspace/output/arch_b_qwen_edit_2511/<run-id> --input-dir /workspace/selfies/`
+
+Both commands also accept a direct LoRA path instead of a run directory:
+
+`python scripts/infer_image.py --lora-path /workspace/output/arch_a_klein_4b/<run-id>/final/marble_bust_klein4b_v1.safetensors --pipeline arch_a_klein_4b --input-image /workspace/selfies/me.jpg`
+
+Prompt handling supports either a raw prompt or a structured persona:
+
+- `--prompt "custom prompt here"`
+- `--persona "heroic senator"`
+
+By default, outputs are written under the training run:
+
+- `/workspace/output/<pipeline>/<run-id>/inference/infer_image/<timestamp>/...`
+- `/workspace/output/<pipeline>/<run-id>/inference/infer_batch/<timestamp>/...`
 
 ## RunPod
 
-Launch through the RunPod wrapper:
+Manual Pod creation in the RunPod web UI is supported and is the primary workflow for now.
+
+The optional `runpod/launch.sh` wrapper is only an in-Pod convenience command once you are already on a configured Pod:
 
 `bash runpod/launch.sh arch_a_klein_4b`
 
@@ -101,11 +133,37 @@ The pod contract assumes:
 - run outputs written under `/workspace/output`
 - the same `scripts/train.py --pipeline <name>` entrypoint as local execution
 
+RunPod Pods mount network volumes at `/workspace` by default. For the checked-in training configs to work unchanged, set the Pod or template volume mount path to `/workspace/shared`. If you prefer a different mount path, generate a Pod-specific config copy with `scripts/prepare_training_config.py` and point `dataset.source` at that path.
+
+### Intended RunPod Workflow
+
+The intended operator workflow is one RunPod Pod per training pipeline when you want parallel training.
+
+For the six checked-in training configs in this repo, that means up to six separate GPU Pods if you want all six running at once. On each Pod, the operator should:
+
+1. clone this repo,
+2. run `bash runpod/setup_pod.sh` to install the repo and bootstrap the pinned trainer checkouts,
+3. attach the shared dataset volume so the real dataset is visible at `/workspace/shared`,
+4. run exactly one training pipeline with `python scripts/train.py --pipeline <name>`,
+5. optionally run `python scripts/infer_image.py ...` or `python scripts/infer_batch.py ...` against the completed run on that same Pod,
+6. keep the resulting run artifacts under `/workspace/output/<pipeline_name>/<run_id>/...`.
+
+If `/workspace/output` is backed by a RunPod network volume, those artifacts can be reused later from a fresh Pod. If the Pod stays alive after training, the operator can also inspect or manually test the trained LoRA on that same Pod before terminating it.
+
+This training repo now includes same-Pod generation commands for post-training checks. The larger automated evaluation and scorecard harness is still separate work specified in `eval_pipeline_spec.md`.
+
+To make an editable copy of a checked-in pipeline config for a specific Pod or experiment, use:
+
+`python scripts/prepare_training_config.py --pipeline arch_a_klein_4b --output-path /workspace/configs/arch_a_klein_4b.runpod.yaml --dataset-source /workspace/shared/marble-bust-data/v1 --run-root /workspace/output`
+
+Then tweak the generated YAML and train with:
+
+`python scripts/train.py --config-path /workspace/configs/arch_a_klein_4b.runpod.yaml`
+
 ## Pipelines
 
 - `arch_a_klein_4b`
 - `arch_a_flux2_dev`
-- `arch_a_qwen_image_2512`
 - `arch_a_z_image`
 - `arch_b_qwen_edit_2511`
 - `arch_b_kontext_dev`
@@ -113,13 +171,21 @@ The pod contract assumes:
 
 ## Required Environment Variables
 
+Required for training, including manual RunPod Pods:
+
 - `HF_TOKEN`
+
+Required only for optional RunPod automation:
+
+- `RUNPOD_API_KEY` (in addition to `HF_TOKEN`)
+
+Optional for S3-compatible upload flows:
+
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
-- `RUNPOD_API_KEY`
+- `AWS_SESSION_TOKEN`
+- `S3_ENDPOINT_URL`
 
 Optional:
 
 - `WANDB_API_KEY`
-- `AWS_SESSION_TOKEN`
-- `S3_ENDPOINT_URL`

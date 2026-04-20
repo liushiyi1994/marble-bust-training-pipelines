@@ -2,7 +2,7 @@
 
 ## Context
 
-This is the companion spec to `training_pipelines_spec.md`. That doc covers training 5 LoRAs (3 Architecture A + 2 Architecture B) across different base models. This doc covers what we do with those LoRAs once training finishes: run inference on a fixed eval set, score outputs automatically, and produce a comparison scorecard.
+This is the companion spec to `training_pipelines_spec.md`. That doc covers training 6 LoRAs (3 Architecture A + 3 Architecture B) across different base models. This doc covers what we do with those LoRAs once training finishes: run inference on a fixed eval set, score outputs automatically, and produce a comparison scorecard.
 
 The goal is a single command that takes a folder of trained LoRAs and produces a scorecard the team can use to decide which (model, architecture) combination to productionize.
 
@@ -11,7 +11,7 @@ The goal is a single command that takes a folder of trained LoRAs and produces a
 1. Run each trained LoRA through a fixed eval set of selfies to produce output busts.
 2. Automatically score every output on four dimensions: identity preservation, eye treatment, modern artifact removal, marble texture quality.
 3. Produce a per-LoRA scorecard and side-by-side visual comparison grids.
-4. Keep the harness model-agnostic: adding a 6th LoRA later should require a new config file, not new code.
+4. Keep the harness model-agnostic: adding another LoRA later should require a new config file, not new code.
 5. Runnable on RunPod (primary) or any Linux machine with a GPU.
 
 ## Scope
@@ -40,7 +40,7 @@ Eval set lives in the shared network volume at `/workspace/shared/eval_set/v1/` 
 
 For each selfie, generate **3 outputs** per LoRA at different random seeds (seeds 42, 123, 777 — fixed and constant across LoRAs). Total outputs per LoRA: 8 selfies × 3 seeds = 24 images.
 
-For 5 LoRAs: 120 outputs total per eval run.
+For 6 LoRAs: 144 outputs total per eval run.
 
 ## Repository Layout
 
@@ -55,9 +55,10 @@ marble-bust-eval/
 │   ├── eval_defaults.yaml           # Shared eval settings (eval set path, seeds, scoring thresholds)
 │   ├── lora_klein_4b.yaml           # Per-LoRA inference config (Arch A)
 │   ├── lora_flux2_dev.yaml          # Arch A
-│   ├── lora_qwen_image.yaml         # Arch A
+│   ├── lora_z_image.yaml            # Arch A
 │   ├── lora_qwen_edit_2511.yaml     # Arch B
-│   └── lora_kontext_dev.yaml        # Arch B
+│   ├── lora_kontext_dev.yaml        # Arch B
+│   └── lora_firered_edit_1_1.yaml   # Arch B
 ├── adapters/
 │   ├── __init__.py
 │   ├── base.py                      # Abstract InferenceAdapter interface
@@ -90,7 +91,7 @@ Both architectures produce the same logical output (a marble bust given a selfie
 
 ### Architecture A Adapter
 
-For generation models with multi-reference: FLUX.2 Klein 4B, FLUX.2 Dev, Qwen-Image (2512 base).
+For generation and image-conditioned models in the current matrix: FLUX.2 Klein 4B, FLUX.2 Dev, and Z-Image.
 
 ```python
 class ArchAAdapter(InferenceAdapter):
@@ -176,7 +177,7 @@ No other text.
 
 Output: pass = empty list returned. Fail = anything listed. Aggregate per-LoRA as % pass rate.
 
-Cost: ~$0.002 per image. Budget for 5 LoRAs × 24 outputs = 120 calls = ~$0.24 per full eval run.
+Cost: ~$0.002 per image. Budget for 6 LoRAs × 24 outputs = 144 calls = ~$0.29 per full eval run.
 
 ### 4. Marble Texture (VLM)
 
@@ -209,9 +210,10 @@ Eval set: v1 (8 selfies × 3 seeds = 24 outputs per LoRA)
 |---|---|---|---|---|---|---|
 | klein_4b | A | 0.42 | 75% | 88% | 92% | ... |
 | flux2_dev | A | 0.51 | 83% | 92% | 96% | ... |
-| qwen_image | A | 0.48 | 71% | 79% | 88% | ... |
+| z_image | A | 0.48 | 71% | 79% | 88% | ... |
 | qwen_edit_2511 | B | 0.58 | 79% | 83% | 92% | ... |
 | kontext_dev | B | 0.54 | 67% | 75% | 85% | ... |
+| firered_edit_1_1 | B | 0.56 | 73% | 81% | 90% | ... |
 
 ## Notes
 - Identity scores are not directly comparable across architectures — Arch B
@@ -225,7 +227,7 @@ Eval set: v1 (8 selfies × 3 seeds = 24 outputs per LoRA)
 For each of the 8 eval selfies, produce one grid image:
 
 ```
-[ Input Selfie ] | [ klein_4b output ] | [ flux2_dev output ] | [ qwen_image output ] | [ qwen_edit_2511 output ] | [ kontext_dev output ]
+[ Input Selfie ] | [ klein_4b output ] | [ flux2_dev output ] | [ z_image output ] | [ qwen_edit_2511 output ] | [ kontext_dev output ] | [ firered_edit_1_1 output ]
 ```
 
 Using seed 42 only for the grid (pick one seed so it fits on a page). Label each column with the LoRA name. Save as high-res JPG.
@@ -257,17 +259,18 @@ Single command: `bash scripts/run_eval.sh`
 
 ## Inference GPU Strategy
 
-All inference can run on a **single pod sequentially across LoRAs** — this is simpler than coordinating 5 parallel pods and the eval is small enough that sequential completes in under an hour.
+All inference can run on a **single pod sequentially across LoRAs** — this is simpler than coordinating 6 parallel pods and the eval is small enough that sequential completes in under an hour.
 
-Target pod: **A100 80GB**. This is the smallest single GPU that can load all 5 base models without quantization gymnastics. Sequential inference over 5 LoRAs × 24 outputs:
+Target pod: **A100 80GB**. This is the smallest single GPU that can load all 6 base models without quantization gymnastics. Sequential inference over 6 LoRAs × 24 outputs:
 
 | LoRA | Base model | Time per image | Total for 24 |
 |---|---|---|---|
 | klein_4b | FLUX.2 Klein 4B | ~1s | ~25s |
 | flux2_dev | FLUX.2 Dev 32B | ~8s | ~3.5 min |
-| qwen_image | Qwen-Image 20B | ~6s | ~2.5 min |
+| z_image | Z-Image | ~6s | ~2.5 min |
 | qwen_edit_2511 | Qwen-Image-Edit 20B | ~6s | ~2.5 min |
 | kontext_dev | Kontext Dev 12B | ~4s | ~1.5 min |
+| firered_edit_1_1 | FireRed-Image-Edit-1.1 | ~6s | ~2.5 min |
 
 Total inference wall-clock: ~10 minutes + model loading overhead (~2 min per model swap) = ~20 minutes total on one A100.
 
@@ -286,6 +289,13 @@ Two caveats worth building into the scorecard output so we don't over-interpret:
 ## RunPod Integration Requirements
 
 Same pattern as the training spec — a single command spins up a pod, runs the eval, uploads results, tears down the pod.
+
+Operationally, the team should be able to use either of these two flows:
+
+1. keep the training Pod alive after a LoRA finishes and run inference/eval on that same Pod, or
+2. terminate the training Pod, then attach the same network volume to a fresh eval Pod and run the eval there.
+
+Both flows must read the trained LoRA artifacts from the shared persisted storage path rather than requiring a manual download and re-upload step between training and evaluation.
 
 ```
 bash runpod/launch_eval.sh --run-id=2026-04-17-bakeoff-1
@@ -326,4 +336,4 @@ Network volume `/workspace/shared` contains:
 
 The eval harness expects LoRAs produced by the training pipelines to land in a discoverable location (default: `s3://marble-bust-loras/{pipeline_name}/{lora_name}.safetensors`). If the training spec's output schema changes, update the eval configs to match.
 
-One eval config per trained LoRA. Keeping these in sync is manual for now (5 LoRAs is small); if we add more, consider auto-generating eval configs from training configs.
+One eval config per trained LoRA. Keeping these in sync is manual for now (6 LoRAs is still manageable); if we add more, consider auto-generating eval configs from training configs.

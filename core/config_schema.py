@@ -45,7 +45,7 @@ class OutputConfig(BaseModel):
     run_root: str
     lora_name: str
     save_every_n_steps: int
-    s3_output_uri: str
+    s3_output_uri: str | None = None
 
 
 class HardwareConfig(BaseModel):

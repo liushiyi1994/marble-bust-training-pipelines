@@ -79,16 +79,11 @@ def test_dataset_validation_rejects_non_directory_subdir(tmp_path):
 
 
 def test_required_env_vars_for_training_scope():
-    assert required_env_vars(scope="training") == ["HF_TOKEN", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+    assert required_env_vars(scope="training") == ["HF_TOKEN"]
 
 
 def test_required_env_vars_for_runpod_scope():
-    assert required_env_vars(scope="runpod") == [
-        "HF_TOKEN",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "RUNPOD_API_KEY",
-    ]
+    assert required_env_vars(scope="runpod") == ["HF_TOKEN", "RUNPOD_API_KEY"]
 
 
 def test_required_env_vars_rejects_invalid_scope():
@@ -97,18 +92,17 @@ def test_required_env_vars_rejects_invalid_scope():
 
 
 def test_validate_env_rejects_missing_vars():
-    with pytest.raises(ValueError, match="missing required env vars for scope 'training': AWS_SECRET_ACCESS_KEY"):
+    with pytest.raises(ValueError, match="missing required env vars for scope 'training': HF_TOKEN"):
         validate_env(
             "training",
             env={
-                "HF_TOKEN": "token",
                 "AWS_ACCESS_KEY_ID": "id",
             },
         )
 
 
 def test_validate_env_rejects_blank_vars():
-    with pytest.raises(ValueError, match="missing required env vars for scope 'runpod': AWS_SECRET_ACCESS_KEY, RUNPOD_API_KEY"):
+    with pytest.raises(ValueError, match="missing required env vars for scope 'runpod': RUNPOD_API_KEY"):
         validate_env(
             "runpod",
             env={
@@ -120,13 +114,20 @@ def test_validate_env_rejects_blank_vars():
         )
 
 
-def test_validate_env_accepts_complete_env():
+def test_validate_env_accepts_training_env_without_aws():
+    validate_env(
+        "training",
+        env={
+            "HF_TOKEN": "token",
+        },
+    )
+
+
+def test_validate_env_accepts_runpod_env_without_aws():
     validate_env(
         "runpod",
         env={
             "HF_TOKEN": "token",
-            "AWS_ACCESS_KEY_ID": "id",
-            "AWS_SECRET_ACCESS_KEY": "secret",
             "RUNPOD_API_KEY": "key",
         },
     )

@@ -7,7 +7,8 @@
     "HF_TOKEN",
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
-    "WANDB_API_KEY",
-    "RUNPOD_API_KEY"
+    "AWS_SESSION_TOKEN",
+    "S3_ENDPOINT_URL",
+    "WANDB_API_KEY"
   ]
 }

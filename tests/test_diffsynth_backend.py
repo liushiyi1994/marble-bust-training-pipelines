@@ -38,37 +38,6 @@ def _make_arch_b_dataset(root: Path, count: int = 1) -> Path:
     return root
 
 
-def test_builds_qwen_image_2512_args_and_metadata(tmp_path):
-    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_qwen_image_2512.yaml"))
-    prepared = _make_arch_a_dataset(tmp_path / "prepared", count=2)
-
-    args = build_diffsynth_args(cfg, dataset_dir=prepared, output_dir=tmp_path / "runs")
-
-    assert args[:3] == ["accelerate", "launch", "examples/qwen_image/model_training/train.py"]
-    assert _arg_value(args, "--dataset_base_path") == str(prepared / "busts")
-    assert _arg_value(args, "--data_file_keys") == "image"
-    assert _arg_value(args, "--model_id_with_origin_paths") == (
-        "Qwen/Qwen-Image-2512:transformer/diffusion_pytorch_model*.safetensors,"
-        "Qwen/Qwen-Image:text_encoder/model*.safetensors,"
-        "Qwen/Qwen-Image:vae/diffusion_pytorch_model.safetensors"
-    )
-    assert _arg_value(args, "--output_path") == str(tmp_path / "runs" / cfg.output.lora_name)
-    assert _arg_value(args, "--lora_base_model") == "dit"
-    assert _arg_value(args, "--lora_target_modules") == (
-        "to_q,to_k,to_v,add_q_proj,add_k_proj,add_v_proj,to_out.0,to_add_out,"
-        "img_mlp.net.2,img_mod.1,txt_mlp.net.2,txt_mod.1"
-    )
-    assert _arg_value(args, "--gradient_accumulation_steps") == str(cfg.training.gradient_accumulation)
-    assert _arg_value(args, "--save_steps") == str(cfg.output.save_every_n_steps)
-    assert _arg_value(args, "--num_epochs") == "4000"
-
-    metadata_path = Path(_arg_value(args, "--dataset_metadata_path"))
-    assert json.loads(metadata_path.read_text()) == [
-        {"image": "000.jpg", "prompt": "a marble bust with <mrblbust> details 0"},
-        {"image": "001.jpg", "prompt": "a marble bust with <mrblbust> details 1"},
-    ]
-
-
 def test_builds_z_image_args(tmp_path):
     cfg = load_pipeline_config(Path("configs/pipelines/arch_a_z_image.yaml"))
     prepared = _make_arch_a_dataset(tmp_path / "prepared")
@@ -130,7 +99,7 @@ def test_builds_firered_args(tmp_path):
 
 
 def test_rejects_unsupported_diffsynth_batch_size(tmp_path):
-    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_qwen_image_2512.yaml"))
+    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_z_image.yaml"))
     cfg.training.batch_size = 2
     prepared = _make_arch_a_dataset(tmp_path / "prepared")
 
@@ -140,13 +109,13 @@ def test_rejects_unsupported_diffsynth_batch_size(tmp_path):
 
 def test_run_diffsynth_normalizes_latest_artifact(tmp_path, monkeypatch):
     diffsynth_home = tmp_path / ".vendor" / "DiffSynth-Studio"
-    output_dir = tmp_path / "runs" / "marble_bust_qwen2512_v1"
+    output_dir = tmp_path / "runs" / "marble_bust_qwenedit2511_v1"
     output_dir.mkdir(parents=True)
     older = output_dir / "epoch-0.safetensors"
     newer = output_dir / "step-500.safetensors"
     older.write_bytes(b"older")
     newer.write_bytes(b"newer")
-    normalized_target = tmp_path / "artifacts" / "marble_bust_qwen2512_v1.safetensors"
+    normalized_target = tmp_path / "artifacts" / "marble_bust_qwenedit2511_v1.safetensors"
 
     calls: list[tuple[list[str], Path, bool]] = []
 

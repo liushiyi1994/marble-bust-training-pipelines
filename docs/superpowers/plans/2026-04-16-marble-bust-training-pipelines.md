@@ -121,7 +121,6 @@ git commit -m "chore: bootstrap training repo skeleton"
 - Create: `core/config_schema.py`
 - Create: `configs/pipelines/arch_a_klein_4b.yaml`
 - Create: `configs/pipelines/arch_a_flux2_dev.yaml`
-- Create: `configs/pipelines/arch_a_qwen_image_2512.yaml`
 - Create: `configs/pipelines/arch_a_z_image.yaml`
 - Create: `configs/pipelines/arch_b_qwen_edit_2511.yaml`
 - Create: `configs/pipelines/arch_b_kontext_dev.yaml`
@@ -201,7 +200,7 @@ python -m pytest tests/test_config_schema.py -v
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'core.config_schema'`.
 
-- [ ] **Step 3: Implement the matrix, schema, and all seven pipeline configs**
+- [ ] **Step 3: Implement the matrix, schema, and all six pipeline configs**
 
 ```python
 # core/model_matrix.py
@@ -220,7 +219,6 @@ class PipelineDefinition:
 PIPELINE_MATRIX = {
     "arch_a_klein_4b": PipelineDefinition("arch_a_klein_4b", "A", "ai_toolkit", "black-forest-labs/FLUX.2-klein-base-4B", "A40-48GB"),
     "arch_a_flux2_dev": PipelineDefinition("arch_a_flux2_dev", "A", "ai_toolkit", "black-forest-labs/FLUX.2-dev", "H100-80GB"),
-    "arch_a_qwen_image_2512": PipelineDefinition("arch_a_qwen_image_2512", "A", "diffsynth", "Qwen/Qwen-Image-2512", "A100-80GB"),
     "arch_a_z_image": PipelineDefinition("arch_a_z_image", "A", "diffsynth", "Tongyi-MAI/Z-Image", "A100-80GB"),
     "arch_b_qwen_edit_2511": PipelineDefinition("arch_b_qwen_edit_2511", "B", "diffsynth", "Qwen/Qwen-Image-Edit-2511", "A100-80GB"),
     "arch_b_kontext_dev": PipelineDefinition("arch_b_kontext_dev", "B", "ai_toolkit", "black-forest-labs/FLUX.1-Kontext-dev", "A100-80GB"),
@@ -370,19 +368,6 @@ training: {lora_rank: 32, lora_alpha: 32, learning_rate: 8.0e-5, steps: 2000, ba
 dataset: {source: /workspace/shared/marble-bust-data/v1, manifest: manifest.json, arch_a_subdir: busts, arch_b_subdir: pairs, caption_extension: .txt}
 output: {run_root: /workspace/output, lora_name: marble_bust_flux2dev_v1, save_every_n_steps: 500, s3_output_uri: s3://marble-bust-loras/}
 hardware: {target_gpu: H100-80GB, mixed_precision: bf16}
-backend_options: {quantize_frozen_modules: false, sample_every_n_steps: 250, extra: {}}
-```
-
-```yaml
-# configs/pipelines/arch_a_qwen_image_2512.yaml
-pipeline_name: arch_a_qwen_image_2512
-architecture: A
-backend: diffsynth
-base_model: {repo: Qwen/Qwen-Image-2512, revision: main, dtype: bfloat16}
-training: {lora_rank: 32, lora_alpha: 32, learning_rate: 1.0e-4, steps: 2000, batch_size: 1, gradient_accumulation: 4, trigger_word: mrblbust, seed: 42, resolution: 1024}
-dataset: {source: /workspace/shared/marble-bust-data/v1, manifest: manifest.json, arch_a_subdir: busts, arch_b_subdir: pairs, caption_extension: .txt}
-output: {run_root: /workspace/output, lora_name: marble_bust_qwen2512_v1, save_every_n_steps: 500, s3_output_uri: s3://marble-bust-loras/}
-hardware: {target_gpu: A100-80GB, mixed_precision: bf16}
 backend_options: {quantize_frozen_modules: false, sample_every_n_steps: 250, extra: {}}
 ```
 
@@ -937,13 +922,6 @@ from core.config_schema import load_pipeline_config
 from backends.qwen_diffsynth.config_builder import build_diffsynth_args
 
 
-def test_builds_qwen_image_2512_args(tmp_path):
-    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_qwen_image_2512.yaml"))
-    args = build_diffsynth_args(cfg, dataset_dir=tmp_path / "prepared", output_dir=tmp_path / "runs")
-    assert "--dataset_base_path" in args
-    assert "Qwen/Qwen-Image-2512" in " ".join(args)
-
-
 def test_builds_firered_args(tmp_path):
     cfg = load_pipeline_config(Path("configs/pipelines/arch_b_firered_edit_1_1.yaml"))
     args = build_diffsynth_args(cfg, dataset_dir=tmp_path / "prepared", output_dir=tmp_path / "runs")
@@ -1192,7 +1170,6 @@ def classify_local_smoke_strategy(gpu_name: str, total_vram_mib: int) -> dict[st
     try_locally = ["arch_a_z_image", "arch_b_kontext_dev"] if total_vram_mib >= 32000 else []
     runpod_first = [
         "arch_a_flux2_dev",
-        "arch_a_qwen_image_2512",
         "arch_b_qwen_edit_2511",
         "arch_b_firered_edit_1_1",
     ]
@@ -1362,12 +1339,11 @@ git commit -m "feat: add docker and runpod launch layer"
 from pathlib import Path
 
 
-def test_readme_mentions_all_seven_pipelines():
+def test_readme_mentions_all_six_pipelines():
     readme = Path("README.md").read_text()
     for pipeline in [
         "arch_a_klein_4b",
         "arch_a_flux2_dev",
-        "arch_a_qwen_image_2512",
         "arch_a_z_image",
         "arch_b_qwen_edit_2511",
         "arch_b_kontext_dev",
@@ -1416,7 +1392,6 @@ Expected: FAIL because the documentation files do not exist.
 
 - arch_a_klein_4b
 - arch_a_flux2_dev
-- arch_a_qwen_image_2512
 - arch_a_z_image
 - arch_b_qwen_edit_2511
 - arch_b_kontext_dev
@@ -1438,7 +1413,6 @@ Expected: FAIL because the documentation files do not exist.
 |---|---|---|---|---|---|
 | arch_a_klein_4b | ai_toolkit | pending | pending | pending | |
 | arch_a_flux2_dev | ai_toolkit | pending | runpod-first | pending | |
-| arch_a_qwen_image_2512 | diffsynth | pending | runpod-first | pending | |
 | arch_a_z_image | diffsynth | pending | try-local | pending | |
 | arch_b_qwen_edit_2511 | diffsynth | pending | runpod-first | pending | |
 | arch_b_kontext_dev | ai_toolkit | pending | try-local | pending | |

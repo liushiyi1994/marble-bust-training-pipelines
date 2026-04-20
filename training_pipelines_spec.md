@@ -51,28 +51,33 @@ The LoRA learns the transformation itself — selfie to marble bust — as an en
 
 Build pipelines for each cell marked ✓. Cells marked — are not applicable (model doesn't support that architecture natively).
 
-| Base Model | Params | Arch A | Arch B | Target GPU (RunPod) |
-|---|---|---|---|---|
-| FLUX.2 Klein 4B (base) | 4B | ✓ | — | A40 48GB |
-| FLUX.2 Dev | 32B | ✓ | — | H100 80GB |
-| Qwen-Image (base, aka 2512) | 20B | ✓ | — | A100 80GB |
-| Qwen-Image-Edit-2511 | 20B | — | ✓ | A100 80GB |
-| FLUX.1 Kontext Dev | 12B | — | ✓ | A100 80GB (A40 fallback) |
+| Base Model | Arch A | Arch B | Target GPU (RunPod) |
+|---|---|---|---|
+| FLUX.2 Klein 4B (base) | ✓ | — | A40 48GB |
+| FLUX.2 Dev | ✓ | — | H100 80GB |
+| Z-Image | ✓ | — | A100 80GB |
+| Qwen-Image-Edit-2511 | — | ✓ | A100 80GB |
+| FLUX.1 Kontext Dev | — | ✓ | A100 80GB (A40 fallback) |
+| FireRed-Image-Edit-1.1 | — | ✓ | A100 80GB |
 
-Total pipelines to build: **5** (3 × Arch A + 2 × Arch B).
+Total pipelines to build: **6** (3 × Arch A + 3 × Arch B).
 
-Each of these five pipelines is independent but should share as much common infrastructure as possible (dataset loading, weight export, config validation, logging). Only the model-specific training loop, the base checkpoint, and a small number of per-model hyperparameters should differ.
+Each of these six pipelines is independent but should share as much common infrastructure as possible (dataset loading, weight export, config validation, logging). Only the model-specific training loop, the base checkpoint, and a small number of per-model hyperparameters should differ.
 
 ## Recommended Trainer
 
-Use **Ostris AI Toolkit** (`github.com/ostris/ai-toolkit`) as the base trainer for all five pipelines. Reasons:
+Use the strongest trainer per model family rather than forcing one trainer for every pipeline:
 
-- Supports all five base models in the matrix above as of early 2026.
-- Official RunPod template exists, which simplifies pod setup.
+- AI Toolkit for the FLUX-family pipelines.
+- DiffSynth-Studio for Z-Image, Qwen-Image-Edit, and FireRed.
+- Both ecosystems produce standard `.safetensors` LoRA weights loadable by diffusers / ComfyUI.
+
+Reasons:
+
+- Matches the actual checked-in repo split and current model support reality.
+- Keeps RunPod setup practical without forcing a fake single-backend abstraction.
 - Config-file-driven (YAML), so per-model variation is isolated to config rather than code.
-- Produces standard `.safetensors` LoRA weights loadable by diffusers / ComfyUI.
-
-If a specific model has known issues with Ostris (Kontext Dev has historically been more stable on SimpleTuner or kohya_ss for some configs), the agent should flag this and we can decide per-model. Default assumption: Ostris for all five.
+- Preserves a shared validation/output contract even though trainer invocation differs by backend.
 
 ## Repository Layout
 
@@ -86,9 +91,10 @@ marble-bust-training/
 ├── configs/
 │   ├── arch_a_klein_4b.yaml
 │   ├── arch_a_flux2_dev.yaml
-│   ├── arch_a_qwen_image.yaml
+│   ├── arch_a_z_image.yaml
 │   ├── arch_b_qwen_edit_2511.yaml
-│   └── arch_b_kontext_dev.yaml
+│   ├── arch_b_kontext_dev.yaml
+│   └── arch_b_firered_edit_1_1.yaml
 ├── data/
 │   ├── prepare_arch_a.py            # Organizes dataset for Arch A (busts only)
 │   ├── prepare_arch_b.py            # Organizes dataset for Arch B (pairs)
@@ -147,7 +153,7 @@ dataset:
 output:
   lora_name: marble_bust_klein4b_v1
   save_every_n_steps: 500
-  s3_output_uri: s3://marble-bust-loras/
+  s3_output_uri: s3://marble-bust-loras/   # optional; omit for local-only output
 
 # Hardware
 hardware:
@@ -214,35 +220,52 @@ white stone eyes, {attire}, preserve facial bone structure and identity
 
 The pipelines must be runnable on RunPod with minimal friction. Concretely:
 
+### Operator workflow
+
+The intended operator workflow is one RunPod Pod per training pipeline when running in parallel. For the six checked-in training configs in this repo, that means provisioning up to six separate GPU Pods if we want all pipelines training at once.
+
+Each Pod should be able to:
+
+1. clone this repo,
+2. run `runpod/setup_pod.sh` to install the repo and bootstrap the pinned trainer checkout(s),
+3. mount the shared training dataset volume at `/workspace/shared`,
+4. run one checked-in pipeline config with `scripts/train.py --pipeline <name>`,
+5. write artifacts under `/workspace/output/<pipeline_name>/<run_id>/...`,
+6. optionally stay alive long enough for the operator to inspect or sanity-check the trained LoRA on that same Pod before termination.
+
+If the outputs live on a RunPod network volume, the operator should also be able to terminate the training Pod and later attach the same volume to a fresh Pod for inference or evaluation. The formal multi-LoRA inference/eval harness remains separate work covered by `eval_pipeline_spec.md`.
+
 ### 1. Single-command launch
 
-A user with a RunPod account and credentials configured should be able to spin up a pod and run:
+A user with a RunPod account should be able to create a Pod manually in the RunPod UI, attach the correct network volume, clone the repo, and run:
 
 ```
-bash runpod/launch.sh arch_a_klein_4b
+python scripts/train.py --pipeline arch_a_klein_4b
 ```
 
 This should:
-1. Select the correct GPU type from the config (`hardware.gpu`)
-2. Launch a pod using the container image built from `Dockerfile`
-3. Mount the shared network volume containing the dataset
-4. Run `scripts/train.sh arch_a_klein_4b` inside the pod
-5. On completion, upload the resulting `.safetensors` to `output.s3_output_uri`
-6. Stop the pod (do not leave it running — RunPod bills per hour)
+1. Run inside an already-created Pod with the correct target GPU for that config
+2. Read the shared mounted dataset from `/workspace/shared`
+3. Write outputs under `/workspace/output`
+4. Produce a normalized `.safetensors` artifact under the run directory
+5. If `output.s3_output_uri` is set, allow a later optional upload step; otherwise keep the artifact under the configured local output root
 
-The launch script can use the RunPod CLI or REST API, whichever is cleaner. Use `runpodctl` if available.
+An additional helper like `runpod/launch.sh` may exist as an in-Pod convenience wrapper, but API- or CLI-driven Pod creation is optional rather than required.
 
 ### 2. Network volume for shared data
 
-Assume a RunPod network volume is attached at `/workspace/shared`. The dataset lives there. Multiple concurrent pods (e.g., running the five pipelines in parallel) should all be able to read the same dataset without re-downloading.
+Assume a RunPod network volume is attached at `/workspace/shared`. The dataset lives there. Multiple concurrent pods (e.g., running the six pipelines in parallel) should all be able to read the same dataset without re-downloading.
+
+Because RunPod Pods mount network volumes at `/workspace` by default, the operator must either set the Pod/template mount path to `/workspace/shared` or render a Pod-specific config copy that points `dataset.source` at the chosen mount path.
 
 ### 3. Environment variables
 
 The container must read credentials from env vars, never from files:
-- `HF_TOKEN` — HuggingFace access token (for gated models)
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — for S3 upload/download
+- `HF_TOKEN` — required for training and model access
+- `RUNPOD_API_KEY` — optional, only for CLI/API-based Pod automation
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — optional, only for S3-compatible upload/download
+- `AWS_SESSION_TOKEN` / `S3_ENDPOINT_URL` — optional, for temporary credentials or non-AWS S3-compatible endpoints
 - `WANDB_API_KEY` — optional, for training metrics
-- `RUNPOD_API_KEY` — for the launch script
 
 Document all required env vars in `README.md`.
 
@@ -268,8 +291,8 @@ We expect to run 3–5 pipelines concurrently across different pods. The agent d
 ## Deliverables
 
 1. The repo structure above, fully implemented and runnable.
-2. A `README.md` that walks through: setup, dataset layout, running one pipeline locally, running one pipeline on RunPod, running all five in parallel.
-3. A one-page `PIPELINE_STATUS.md` that lists each of the five pipelines, its tested status (e.g., "smoke-tested on A40 with 10 images"), and any known issues per model.
+2. A `README.md` that walks through: setup, dataset layout, running one pipeline locally, running one pipeline on RunPod, running all six in parallel.
+3. A one-page `PIPELINE_STATUS.md` that lists each of the six pipelines, its tested status (e.g., "smoke-tested on A40 with 10 images"), and any known issues per model.
 4. The Dockerfile must build a container under 15 GB.
 5. Each pipeline must complete a smoke test (10 training images, 100 steps) without OOM or crashes on its target GPU before being marked complete.
 
@@ -293,4 +316,4 @@ The agent should surface these rather than silently choosing, and wait for our i
 - We are not building inference or evaluation pipelines in this work. Those will be separate.
 - We are not generating training data in this work. Dataset is supplied via the `s3_uri` in the config.
 - We are not building a UI. Command-line is fine.
-- We are not optimizing for cost-per-run. We are optimizing for "easy to launch 5 training runs in parallel on RunPod and get 5 LoRAs back."
+- We are not optimizing for cost-per-run. We are optimizing for "easy to launch 6 training runs in parallel on RunPod and get 6 LoRAs back."

@@ -25,17 +25,16 @@ This is intentionally not a single unified trainer abstraction. The shared layer
 This preserves two goals that compete with each other:
 
 - best current method per model family,
-- enough shared structure that operating 7 pipelines does not turn into 7 bespoke projects.
+- enough shared structure that operating 6 pipelines does not turn into 6 bespoke projects.
 
 ## Final Model Matrix
 
-We will build **7** independent pipelines:
+We will build **6** independent pipelines:
 
 | Pipeline | Architecture | Base Model | Backend | Primary Target GPU |
 |---|---|---|---|---|
 | `arch_a_klein_4b` | A | `black-forest-labs/FLUX.2-klein-base-4B` | AI Toolkit | A40 48GB |
 | `arch_a_flux2_dev` | A | `black-forest-labs/FLUX.2-dev` | AI Toolkit | H100 80GB |
-| `arch_a_qwen_image_2512` | A | `Qwen/Qwen-Image-2512` | DiffSynth-Studio | A100 80GB |
 | `arch_a_z_image` | A | `Tongyi-MAI/Z-Image` | DiffSynth-Studio | A100 80GB |
 | `arch_b_qwen_edit_2511` | B | `Qwen/Qwen-Image-Edit-2511` | DiffSynth-Studio | A100 80GB |
 | `arch_b_kontext_dev` | B | `black-forest-labs/FLUX.1-Kontext-dev` | AI Toolkit | A100 80GB with 5090 local attempt |
@@ -47,7 +46,6 @@ We will build **7** independent pipelines:
 
 - `FLUX.2-klein-base-4B`: small undistilled FLUX.2 base model, best local and low-friction training candidate.
 - `FLUX.2-dev`: highest-quality FLUX.2 open model intended for fine-tuning/LoRA work.
-- `Qwen-Image-2512`: latest Qwen generation checkpoint in the target family and the most appropriate Qwen Arch A training target.
 - `Z-Image`: use the foundation model, not `Z-Image-Turbo`, because `Turbo` is the distilled fast inference model while `Z-Image` is the fine-tunable base.
 
 ### Architecture B
@@ -70,7 +68,6 @@ marble-bust-training/
 │   ├── pipelines/
 │   │   ├── arch_a_klein_4b.yaml
 │   │   ├── arch_a_flux2_dev.yaml
-│   │   ├── arch_a_qwen_image_2512.yaml
 │   │   ├── arch_a_z_image.yaml
 │   │   ├── arch_b_qwen_edit_2511.yaml
 │   │   ├── arch_b_kontext_dev.yaml
@@ -107,7 +104,6 @@ marble-bust-training/
 │       ├── runner.py
 │       ├── smoke_test.py
 │       └── templates/
-│           ├── train_qwen_image_lora.yaml.j2
 │           ├── train_qwen_edit_lora.yaml.j2
 │           ├── train_z_image_lora.yaml.j2
 │           └── train_firered_edit_lora.yaml.j2
@@ -278,7 +274,6 @@ Model-specific notes:
 
 Used for:
 
-- `arch_a_qwen_image_2512`
 - `arch_a_z_image`
 - `arch_b_qwen_edit_2511`
 - `arch_b_firered_edit_1_1`
@@ -293,7 +288,6 @@ Responsibilities:
 
 Model-specific notes:
 
-- `Qwen-Image-2512`: generation-style Arch A.
 - `Z-Image`: generation-style Arch A using the foundation checkpoint, not Turbo.
 - `Qwen-Image-Edit-2511`: paired edit training.
 - `FireRed-Image-Edit-1.1`: paired edit training using the current 1.1 release.
@@ -316,7 +310,7 @@ Reasoning:
 Reasoning:
 
 - Qwen’s own open repo still points LoRA/full training users toward ModelScope / DiffSynth-Studio support,
-- DiffSynth-Studio explicitly lists LoRA training support for `Qwen-Image-2512`, `Qwen-Image-Edit-2511`, `Tongyi-MAI/Z-Image`, and `FireRed-Image-Edit-1.1`,
+- DiffSynth-Studio explicitly lists LoRA training support for `Qwen-Image-Edit-2511`, `Tongyi-MAI/Z-Image`, and `FireRed-Image-Edit-1.1`,
 - this avoids betting on a weaker or less canonical training path for those families.
 
 ## Run Flow
@@ -368,7 +362,7 @@ That is enough for real local validation, but not as a universal substitute for 
 
 ### Local verification tiers
 
-#### Tier 1: full local validation for all seven
+#### Tier 1: full local validation for all six
 
 For every pipeline:
 
@@ -393,7 +387,6 @@ Attempt locally if stable:
 Bootstrap-only locally, then RunPod smoke:
 
 - `arch_a_flux2_dev`
-- `arch_a_qwen_image_2512`
 - `arch_b_qwen_edit_2511`
 - `arch_b_firered_edit_1_1`
 
@@ -531,7 +524,6 @@ Initial real smoke matrix:
   - try `arch_b_kontext_dev`
 - RunPod:
   - `arch_a_flux2_dev`
-  - `arch_a_qwen_image_2512`
   - `arch_b_qwen_edit_2511`
   - `arch_b_firered_edit_1_1`
   - whichever local attempts prove unstable
@@ -553,7 +545,7 @@ Smoke definition:
 - local validation,
 - local smoke testing,
 - RunPod launch flow,
-- running all seven pipelines independently.
+- running all six pipelines independently.
 
 `PIPELINE_STATUS.md` will track:
 
@@ -572,7 +564,7 @@ Two backends means some operational complexity. This is acceptable because forci
 
 ### 2. High-end model VRAM
 
-`FLUX.2-dev`, `Qwen-Image-2512`, `Qwen-Image-Edit-2511`, and `FireRed-Image-Edit-1.1` remain RunPod-first pipelines even though local bootstrap should still work.
+`FLUX.2-dev`, `Qwen-Image-Edit-2511`, and `FireRed-Image-Edit-1.1` remain RunPod-first pipelines even though local bootstrap should still work.
 
 ### 3. Edit-model dataset quirks
 
@@ -590,7 +582,7 @@ The following are now explicit design decisions:
 2. Keep two hard-separated trainer stacks.
 3. Use AI Toolkit for FLUX-family pipelines.
 4. Use DiffSynth-Studio for Qwen, Z-Image, and FireRed pipelines.
-5. Expand from 5 pipelines to 7 pipelines.
+5. Expand from 5 pipelines to 6 pipelines.
 6. Use `Tongyi-MAI/Z-Image` for Arch A.
 7. Use `FireRedTeam/FireRed-Image-Edit-1.1` for Arch B.
 8. Treat local WSL verification and RunPod acceptance as separate stages.
@@ -603,4 +595,3 @@ The following are now explicit design decisions:
 - DiffSynth-Studio support matrix
 - Tongyi-MAI Z-Image official repo
 - FireRedTeam FireRed-Image-Edit-1.1 model card
-

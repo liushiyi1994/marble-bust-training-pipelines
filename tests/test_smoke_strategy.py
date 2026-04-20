@@ -18,6 +18,12 @@ def test_5090_marks_flux2_dev_runpod_first_for_artifact_smoke():
     assert "arch_a_flux2_dev" in strategy["runpod_first"]
 
 
+def test_5090_excludes_removed_qwen_image_pipeline_from_smoke_strategy():
+    strategy = classify_local_smoke_strategy(gpu_name="NVIDIA GeForce RTX 5090", total_vram_mib=32607)
+
+    assert "arch_a_qwen_image_2512" not in strategy["runpod_first"]
+
+
 def test_smoke_main_dispatches_ai_toolkit_backend(tmp_path, monkeypatch):
     config_path = tmp_path / "arch_a_klein_4b.yaml"
     config_path.write_text("pipeline_name: arch_a_klein_4b\n")
