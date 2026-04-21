@@ -123,6 +123,8 @@ By default, outputs are written under the training run:
 
 Manual Pod creation in the RunPod web UI is supported and is the primary workflow for now.
 
+For repeatable venv/package rebuild commands on RunPod, see `docs/RUNPOD_ENV_REBUILD.md`.
+
 The optional `runpod/launch.sh` wrapper is only an in-Pod convenience command once you are already on a configured Pod:
 
 `bash runpod/launch.sh arch_a_klein_4b`

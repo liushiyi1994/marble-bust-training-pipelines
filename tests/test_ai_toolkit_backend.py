@@ -46,6 +46,34 @@ def test_builds_flux2_dev_job_config(tmp_path):
 
     process = output["config"]["process"][0]
     assert process["model"]["arch"] == "flux2"
+    assert process["model"]["quantize"] is False
+    assert process["train"]["dtype"] == "bf16"
+    assert process["train"]["gradient_checkpointing"] is True
+    assert process["train"]["train_text_encoder"] is False
+
+
+def test_build_ai_toolkit_job_sets_quantization_options_when_enabled(tmp_path):
+    cfg = load_pipeline_config(Path("configs/pipelines/arch_a_flux2_dev.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "backend_options": cfg.backend_options.model_copy(
+                update={"quantize_frozen_modules": True, "extra": {"qtype": "int8"}}
+            )
+        }
+    )
+    prepared = tmp_path / "prepared"
+    busts = prepared / "busts"
+    busts.mkdir(parents=True)
+    (busts / "001.jpg").write_bytes(b"image")
+    (busts / "001.txt").write_text("a marble bust with <mrblbust> details")
+
+    output = build_ai_toolkit_job(cfg, dataset_dir=prepared, training_dir=tmp_path / "runs")
+
+    model = output["config"]["process"][0]["model"]
+    assert model["quantize"] is True
+    assert model["qtype"] == "int8"
+    assert model["quantize_te"] is True
+    assert model["qtype_te"] == "int8"
 
 
 def test_build_ai_toolkit_job_can_enable_dataset_latent_caching(tmp_path):

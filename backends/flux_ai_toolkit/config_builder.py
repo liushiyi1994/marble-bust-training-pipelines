@@ -103,6 +103,16 @@ def _build_process(cfg, dataset_dir: Path, training_dir: Path) -> dict:
             raise ValueError("no caption stems found in busts")
         for caption_src in caption_files:
             _validate_caption_contents(caption_src, cfg.training.trigger_word, caption_src.name)
+    model_config = {
+        "name_or_path": cfg.base_model.repo,
+        "quantize": cfg.backend_options.quantize_frozen_modules,
+        "arch": model_arch,
+    }
+    if cfg.backend_options.quantize_frozen_modules:
+        model_config["qtype"] = cfg.backend_options.extra.get("qtype", "qfloat8")
+        model_config["quantize_te"] = cfg.backend_options.extra.get("quantize_te", True)
+        model_config["qtype_te"] = cfg.backend_options.extra.get("qtype_te", model_config["qtype"])
+
     process = {
         "type": "diffusion_trainer",
         "training_folder": str(training_dir),
@@ -132,12 +142,12 @@ def _build_process(cfg, dataset_dir: Path, training_dir: Path) -> dict:
             "lr": cfg.training.learning_rate,
             "optimizer": "adamw8bit",
             "noise_scheduler": "flowmatch",
+            "dtype": cfg.hardware.mixed_precision,
+            "gradient_checkpointing": True,
+            "train_unet": True,
+            "train_text_encoder": False,
         },
-        "model": {
-            "name_or_path": cfg.base_model.repo,
-            "quantize": cfg.backend_options.quantize_frozen_modules,
-            "arch": model_arch,
-        },
+        "model": model_config,
     }
     if cfg.backend_options.extra.get("cache_latents_to_disk"):
         process["datasets"][0]["cache_latents_to_disk"] = True
