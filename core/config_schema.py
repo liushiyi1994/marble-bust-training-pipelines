@@ -90,6 +90,4 @@ def load_pipeline_config(path: Path) -> PipelineConfig:
         raise ValueError(f"{cfg.pipeline_name} must use architecture {definition.architecture}")
     if cfg.base_model.repo != definition.base_model_repo:
         raise ValueError(f"{cfg.pipeline_name} must use model {definition.base_model_repo}")
-    if cfg.hardware.target_gpu != definition.target_gpu:
-        raise ValueError(f"{cfg.pipeline_name} must use target_gpu {definition.target_gpu}")
     return cfg

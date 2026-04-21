@@ -135,6 +135,8 @@ The pod contract assumes:
 
 RunPod Pods mount network volumes at `/workspace` by default. For the checked-in training configs to work unchanged, set the Pod or template volume mount path to `/workspace/shared`. If you prefer a different mount path, generate a Pod-specific config copy with `scripts/prepare_training_config.py` and point `dataset.source` at that path.
 
+The `hardware.target_gpu` value in each checked-in YAML is advisory metadata for planning, not a validation lock. If a Pod has enough VRAM for a pipeline, render a Pod-specific config and train with that config path.
+
 ### Intended RunPod Workflow
 
 The intended operator workflow is one RunPod Pod per training pipeline when you want parallel training.
@@ -155,6 +157,10 @@ This training repo now includes same-Pod generation commands for post-training c
 To make an editable copy of a checked-in pipeline config for a specific Pod or experiment, use:
 
 `python scripts/prepare_training_config.py --pipeline arch_a_klein_4b --output-path /workspace/configs/arch_a_klein_4b.runpod.yaml --dataset-source /workspace/shared/marble-bust-data/v1 --run-root /workspace/output`
+
+For `arch_a_flux2_dev` on an A100 80GB Pod, render an A100 copy. This automatically enables quantized frozen modules unless `--quantize-frozen-modules false` is supplied:
+
+`python scripts/prepare_training_config.py --pipeline arch_a_flux2_dev --output-path /workspace/configs/arch_a_flux2_dev.a100.yaml --dataset-source /workspace/marble-bust-data/v1 --run-root /workspace/output --target-gpu A100-80GB`
 
 Then tweak the generated YAML and train with:
 

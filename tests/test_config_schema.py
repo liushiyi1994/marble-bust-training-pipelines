@@ -329,15 +329,15 @@ backend_options:
         load_pipeline_config(cfg)
 
 
-def test_rejects_target_gpu_mismatch(tmp_path):
-    cfg = tmp_path / "bad_gpu.yaml"
+def test_allows_target_gpu_override_as_advisory_metadata(tmp_path):
+    cfg = tmp_path / "a100_flux2_dev.yaml"
     cfg.write_text(
         """
-pipeline_name: arch_a_z_image
+pipeline_name: arch_a_flux2_dev
 architecture: A
-backend: diffsynth
+backend: ai_toolkit
 base_model:
-  repo: Tongyi-MAI/Z-Image
+  repo: black-forest-labs/FLUX.2-dev
   revision: main
   dtype: bfloat16
 training:
@@ -362,7 +362,7 @@ output:
   save_every_n_steps: 50
   s3_output_uri: s3://marble-bust-loras/
 hardware:
-  target_gpu: A40-48GB
+  target_gpu: A100-80GB
   mixed_precision: bf16
 backend_options:
   quantize_frozen_modules: false
@@ -370,5 +370,8 @@ backend_options:
   extra: {}
 """.strip()
     )
-    with pytest.raises(ValueError, match="must use target_gpu"):
-        load_pipeline_config(cfg)
+
+    loaded = load_pipeline_config(cfg)
+
+    assert loaded.pipeline_name == "arch_a_flux2_dev"
+    assert loaded.hardware.target_gpu == "A100-80GB"

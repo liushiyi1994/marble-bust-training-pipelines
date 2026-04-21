@@ -28,6 +28,8 @@ def prepare_training_config(
     resolution: int | None = None,
     save_every_n_steps: int | None = None,
     lora_name: str | None = None,
+    quantize_frozen_modules: bool | None = None,
+    target_gpu: str | None = None,
 ) -> Path:
     source_config_path = resolve_requested_config_path(pipeline=pipeline, config_path=config_path)
     raw = yaml.safe_load(source_config_path.read_text())
@@ -36,6 +38,8 @@ def prepare_training_config(
         raw["dataset"]["source"] = str(dataset_source)
     if run_root is not None:
         raw["output"]["run_root"] = str(run_root)
+    if target_gpu is not None:
+        raw["hardware"]["target_gpu"] = target_gpu
     if steps is not None:
         raw["training"]["steps"] = steps
     if batch_size is not None:
@@ -50,11 +54,26 @@ def prepare_training_config(
         raw["output"]["save_every_n_steps"] = save_every_n_steps
     if lora_name is not None:
         raw["output"]["lora_name"] = lora_name
+    if quantize_frozen_modules is not None:
+        raw["backend_options"]["quantize_frozen_modules"] = quantize_frozen_modules
+    elif raw["pipeline_name"] == "arch_a_flux2_dev" and "A100" in raw["hardware"]["target_gpu"]:
+        raw["backend_options"]["quantize_frozen_modules"] = True
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(yaml.safe_dump(raw, sort_keys=False))
     load_pipeline_config(output_path)
     return output_path
+
+
+def _parse_optional_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise typer.BadParameter("expected true or false")
 
 
 def main(
@@ -70,6 +89,8 @@ def main(
     resolution: int | None = typer.Option(None, "--resolution"),
     save_every_n_steps: int | None = typer.Option(None, "--save-every-n-steps"),
     lora_name: str | None = typer.Option(None, "--lora-name"),
+    quantize_frozen_modules: str | None = typer.Option(None, "--quantize-frozen-modules"),
+    target_gpu: str | None = typer.Option(None, "--target-gpu"),
 ) -> None:
     rendered_path = prepare_training_config(
         pipeline=pipeline,
@@ -84,6 +105,8 @@ def main(
         resolution=resolution,
         save_every_n_steps=save_every_n_steps,
         lora_name=lora_name,
+        quantize_frozen_modules=_parse_optional_bool(quantize_frozen_modules),
+        target_gpu=target_gpu,
     )
     print(rendered_path)
 

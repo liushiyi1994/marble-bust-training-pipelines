@@ -51,10 +51,10 @@ The LoRA learns the transformation itself — selfie to marble bust — as an en
 
 Build pipelines for each cell marked ✓. Cells marked — are not applicable (model doesn't support that architecture natively).
 
-| Base Model | Arch A | Arch B | Target GPU (RunPod) |
+| Base Model | Arch A | Arch B | Recommended GPU (RunPod) |
 |---|---|---|---|
 | FLUX.2 Klein 4B (base) | ✓ | — | A40 48GB |
-| FLUX.2 Dev | ✓ | — | H100 80GB |
+| FLUX.2 Dev | ✓ | — | H100 80GB; A100 80GB may require quantized frozen modules |
 | Z-Image | ✓ | — | A100 80GB |
 | Qwen-Image-Edit-2511 | — | ✓ | A100 80GB |
 | FLUX.1 Kontext Dev | — | ✓ | A100 80GB (A40 fallback) |
@@ -244,11 +244,13 @@ python scripts/train.py --pipeline arch_a_klein_4b
 ```
 
 This should:
-1. Run inside an already-created Pod with the correct target GPU for that config
+1. Run inside an already-created Pod with a suitable GPU for that config
 2. Read the shared mounted dataset from `/workspace/shared`
 3. Write outputs under `/workspace/output`
 4. Produce a normalized `.safetensors` artifact under the run directory
 5. If `output.s3_output_uri` is set, allow a later optional upload step; otherwise keep the artifact under the configured local output root
+
+`hardware.target_gpu` is planning metadata. It should guide Pod selection, but it should not prevent a rendered Pod-specific config from running on another GPU class when the operator intentionally chooses that hardware.
 
 An additional helper like `runpod/launch.sh` may exist as an in-Pod convenience wrapper, but API- or CLI-driven Pod creation is optional rather than required.
 
@@ -294,7 +296,7 @@ We expect to run 3–5 pipelines concurrently across different pods. The agent d
 2. A `README.md` that walks through: setup, dataset layout, running one pipeline locally, running one pipeline on RunPod, running all six in parallel.
 3. A one-page `PIPELINE_STATUS.md` that lists each of the six pipelines, its tested status (e.g., "smoke-tested on A40 with 10 images"), and any known issues per model.
 4. The Dockerfile must build a container under 15 GB.
-5. Each pipeline must complete a smoke test (10 training images, 100 steps) without OOM or crashes on its target GPU before being marked complete.
+5. Each pipeline must complete a smoke test (10 training images, 100 steps) without OOM or crashes on its selected GPU profile before being marked complete.
 
 ## Design Principles
 
@@ -308,7 +310,7 @@ We expect to run 3–5 pipelines concurrently across different pods. The agent d
 
 The agent should surface these rather than silently choosing, and wait for our input before proceeding:
 1. If a specific model has known incompatibilities with Ostris AI Toolkit in early 2026, propose the alternative trainer (SimpleTuner, FlyMyAI, kohya_ss) and explain why.
-2. If the target GPU for a model cannot actually fit LoRA training in practice (as opposed to marketing specs), propose a larger GPU or quantization strategy.
+2. If a selected GPU profile cannot actually fit LoRA training in practice, propose a larger GPU or quantization strategy.
 3. If Kontext Dev edit-conditioned training requires a different dataset format than `pairs/`, propose the change.
 
 ## Non-Goals
