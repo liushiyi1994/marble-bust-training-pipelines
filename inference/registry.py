@@ -50,6 +50,7 @@ ADAPTER_SPECS: dict[str, AdapterSpec] = {
         input_image_kind="single",
         default_num_inference_steps=28,
         default_guidance_scale=3.5,
+        uses_true_cfg_scale=True,
     ),
     "arch_b_kontext_dev": AdapterSpec(
         pipeline_class="FluxKontextPipeline",
@@ -66,5 +67,6 @@ ADAPTER_SPECS: dict[str, AdapterSpec] = {
         input_image_kind="single",
         default_num_inference_steps=28,
         default_guidance_scale=3.5,
+        uses_true_cfg_scale=True,
     ),
 }

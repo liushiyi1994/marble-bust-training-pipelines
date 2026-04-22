@@ -105,3 +105,8 @@ def test_inference_registry_covers_all_pipeline_names():
 
 def test_removed_qwen_image_pipeline_has_no_inference_adapter():
     assert "arch_a_qwen_image_2512" not in ADAPTER_SPECS
+
+
+def test_qwen_edit_plus_adapters_use_true_cfg_scale():
+    assert ADAPTER_SPECS["arch_b_qwen_edit_2511"].uses_true_cfg_scale is True
+    assert ADAPTER_SPECS["arch_b_firered_edit_1_1"].uses_true_cfg_scale is True

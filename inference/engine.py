@@ -68,6 +68,20 @@ def _input_paths(input_dir: Path) -> list[Path]:
     )
 
 
+def _prompt_for_input(
+    *,
+    cfg,
+    input_path: Path,
+    prompt: str | None,
+    prompt_by_input: dict[str, str] | None,
+    persona: str | None,
+) -> str:
+    input_prompt = None
+    if prompt_by_input:
+        input_prompt = prompt_by_input.get(input_path.name) or prompt_by_input.get(input_path.stem)
+    return build_inference_prompt(cfg, prompt=input_prompt or prompt, persona=persona)
+
+
 @dataclass
 class LoadedInferenceAdapter:
     target: InferenceTarget
@@ -95,7 +109,8 @@ class LoadedInferenceAdapter:
             torch_dtype=_torch_dtype_name(target.cfg.base_model.dtype),
             token=token,
         )
-        if device.startswith("cuda") and hasattr(pipe, "enable_model_cpu_offload"):
+        disable_cpu_offload = os.environ.get("INFERENCE_DISABLE_CPU_OFFLOAD") == "1"
+        if device.startswith("cuda") and hasattr(pipe, "enable_model_cpu_offload") and not disable_cpu_offload:
             pipe.enable_model_cpu_offload()
         else:
             pipe.to(device)
@@ -206,6 +221,7 @@ def run_batch_inference(
     target: InferenceTarget,
     input_dir: Path,
     prompt: str | None,
+    prompt_by_input: dict[str, str] | None = None,
     persona: str | None,
     output_dir: Path | None,
     seed: int,
@@ -224,7 +240,6 @@ def run_batch_inference(
         output_dir=output_dir,
         run_label=run_label,
     )
-    resolved_prompt = build_inference_prompt(target.cfg, prompt=prompt, persona=persona)
     adapter = LoadedInferenceAdapter.load(
         target=target,
         device=device,
@@ -234,6 +249,13 @@ def run_batch_inference(
     output_paths: list[str] = []
     try:
         for input_path in input_paths:
+            resolved_prompt = _prompt_for_input(
+                cfg=target.cfg,
+                input_path=input_path,
+                prompt=prompt,
+                prompt_by_input=prompt_by_input,
+                persona=persona,
+            )
             image = adapter.generate(input_image_path=input_path, prompt=resolved_prompt, seed=seed)
             output_path = resolved_output_dir / f"{input_path.stem}.png"
             image.save(output_path)

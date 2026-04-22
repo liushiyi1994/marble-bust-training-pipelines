@@ -117,10 +117,10 @@ def test_run_diffsynth_normalizes_latest_artifact(tmp_path, monkeypatch):
     newer.write_bytes(b"newer")
     normalized_target = tmp_path / "artifacts" / "marble_bust_qwenedit2511_v1.safetensors"
 
-    calls: list[tuple[list[str], Path, bool]] = []
+    calls: list[tuple[list[str], Path, bool, dict[str, str]]] = []
 
-    def fake_run(cmd, cwd, check):
-        calls.append((cmd, cwd, check))
+    def fake_run(cmd, cwd, check, env):
+        calls.append((cmd, cwd, check, env))
         return CompletedProcess(cmd, 0)
 
     monkeypatch.setattr("subprocess.run", fake_run)
@@ -139,8 +139,11 @@ def test_run_diffsynth_normalizes_latest_artifact(tmp_path, monkeypatch):
             ["accelerate", "launch", "examples/qwen_image/model_training/train.py"],
             diffsynth_home,
             True,
+            calls[0][3],
         )
     ]
+    assert str(diffsynth_home) in calls[0][3]["PYTHONPATH"].split(":")
+    assert calls[0][3]["DIFFSYNTH_DOWNLOAD_SOURCE"] == "huggingface"
 
 
 def test_find_latest_diffsynth_artifact_ignores_cached_latents(tmp_path):

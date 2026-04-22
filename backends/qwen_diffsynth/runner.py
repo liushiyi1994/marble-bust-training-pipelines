@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+
+
+def _diffsynth_env(diffsynth_home: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    entries = [str(diffsynth_home)]
+    if existing_pythonpath:
+        entries.append(existing_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(entries)
+    env["DIFFSYNTH_DOWNLOAD_SOURCE"] = "huggingface"
+    return env
 
 
 def run_diffsynth(
@@ -14,12 +26,20 @@ def run_diffsynth(
     normalized_artifact_path: Path | None = None,
     log_path: Path | None = None,
 ) -> Path | None:
+    env = _diffsynth_env(diffsynth_home)
     if log_path is None:
-        subprocess.run(args, cwd=diffsynth_home, check=True)
+        subprocess.run(args, cwd=diffsynth_home, check=True, env=env)
     else:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w") as log_file:
-            subprocess.run(args, cwd=diffsynth_home, check=True, stdout=log_file, stderr=subprocess.STDOUT)
+            subprocess.run(
+                args,
+                cwd=diffsynth_home,
+                check=True,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                env=env,
+            )
 
     if training_dir is None or normalized_artifact_path is None:
         return None
