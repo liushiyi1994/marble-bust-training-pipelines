@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import gc
 import os
 from pathlib import Path
+from typing import Literal
 
 from PIL import Image, ImageOps
 
@@ -15,6 +16,7 @@ from inference.registry import ADAPTER_SPECS, AdapterSpec
 
 
 _INPUT_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
+ResizeMode = Literal["crop", "pad"]
 
 
 def build_inference_run_label() -> str:
@@ -55,9 +57,24 @@ def _torch_dtype_name(dtype: str):
         raise ValueError(f"unsupported torch dtype {dtype}") from exc
 
 
-def _prepare_image(image_path: Path, resolution: int) -> Image.Image:
+def _prepare_image(
+    image_path: Path,
+    *,
+    width: int,
+    height: int,
+    resize_mode: ResizeMode,
+) -> Image.Image:
     image = Image.open(image_path).convert("RGB")
-    return ImageOps.fit(image, (resolution, resolution), method=Image.Resampling.LANCZOS)
+    if resize_mode == "crop":
+        return ImageOps.fit(image, (width, height), method=Image.Resampling.LANCZOS)
+    if resize_mode == "pad":
+        contained = ImageOps.contain(image, (width, height), method=Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (width, height), color="black")
+        left = (width - contained.width) // 2
+        top = (height - contained.height) // 2
+        canvas.paste(contained, (left, top))
+        return canvas
+    raise ValueError(f"unsupported resize_mode {resize_mode}")
 
 
 def _input_paths(input_dir: Path) -> list[Path]:
@@ -124,17 +141,32 @@ class LoadedInferenceAdapter:
             pipeline=pipe,
         )
 
-    def generate(self, *, input_image_path: Path, prompt: str, seed: int) -> Image.Image:
+    def generate(
+        self,
+        *,
+        input_image_path: Path,
+        prompt: str,
+        seed: int,
+        width: int | None,
+        height: int | None,
+        resize_mode: ResizeMode,
+    ) -> Image.Image:
         torch, _ = _load_runtime()
+        target_width = width or self.target.cfg.training.resolution
+        target_height = height or self.target.cfg.training.resolution
         kwargs: dict[str, object] = {
             "prompt": prompt,
             "num_inference_steps": self.num_inference_steps,
             "generator": torch.Generator(device="cpu" if self.device == "cpu" else self.device).manual_seed(seed),
         }
-        resolution = self.target.cfg.training.resolution
         prepared_image = None
         if self.spec.uses_input_image:
-            prepared_image = _prepare_image(input_image_path, resolution)
+            prepared_image = _prepare_image(
+                input_image_path,
+                width=target_width,
+                height=target_height,
+                resize_mode=resize_mode,
+            )
             if self.spec.input_image_kind == "list":
                 kwargs["image"] = [prepared_image]
             else:
@@ -143,21 +175,21 @@ class LoadedInferenceAdapter:
         if self.spec.uses_true_cfg_scale:
             kwargs["negative_prompt"] = " "
             kwargs["true_cfg_scale"] = self.guidance_scale
-            kwargs["width"] = resolution
-            kwargs["height"] = resolution
+            kwargs["width"] = target_width
+            kwargs["height"] = target_height
         else:
             kwargs["guidance_scale"] = self.guidance_scale
 
         if self.spec.pipeline_class in {"Flux2KleinPipeline", "Flux2Pipeline"}:
-            kwargs["width"] = resolution
-            kwargs["height"] = resolution
+            kwargs["width"] = target_width
+            kwargs["height"] = target_height
         if self.spec.uses_image_strength:
             kwargs["strength"] = self.spec.default_image_strength
 
         if not self.spec.uses_input_image:
             # Prompt-only generation still accepts input files in batch mode for naming symmetry.
-            kwargs["width"] = resolution
-            kwargs["height"] = resolution
+            kwargs["width"] = target_width
+            kwargs["height"] = target_height
 
         return self.pipeline(**kwargs).images[0]
 
@@ -185,6 +217,9 @@ def run_single_image_inference(
     device: str,
     num_inference_steps: int | None,
     guidance_scale: float | None,
+    width: int | None,
+    height: int | None,
+    resize_mode: ResizeMode,
 ) -> dict[str, object]:
     run_label = build_inference_run_label()
     resolved_output_dir = build_inference_output_dir(
@@ -201,7 +236,14 @@ def run_single_image_inference(
         guidance_scale=guidance_scale,
     )
     try:
-        image = adapter.generate(input_image_path=input_image, prompt=resolved_prompt, seed=seed)
+        image = adapter.generate(
+            input_image_path=input_image,
+            prompt=resolved_prompt,
+            seed=seed,
+            width=width,
+            height=height,
+            resize_mode=resize_mode,
+        )
         output_path = resolved_output_dir / f"{input_image.stem}.png"
         image.save(output_path)
     finally:
@@ -228,6 +270,9 @@ def run_batch_inference(
     device: str,
     num_inference_steps: int | None,
     guidance_scale: float | None,
+    width: int | None,
+    height: int | None,
+    resize_mode: ResizeMode,
 ) -> dict[str, object]:
     input_paths = _input_paths(input_dir)
     if not input_paths:
@@ -256,7 +301,14 @@ def run_batch_inference(
                 prompt_by_input=prompt_by_input,
                 persona=persona,
             )
-            image = adapter.generate(input_image_path=input_path, prompt=resolved_prompt, seed=seed)
+            image = adapter.generate(
+                input_image_path=input_path,
+                prompt=resolved_prompt,
+                seed=seed,
+                width=width,
+                height=height,
+                resize_mode=resize_mode,
+            )
             output_path = resolved_output_dir / f"{input_path.stem}.png"
             image.save(output_path)
             output_paths.append(str(output_path))

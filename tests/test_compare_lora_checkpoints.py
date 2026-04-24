@@ -101,6 +101,9 @@ def test_compare_lora_checkpoints_writes_report_and_contact_sheets(tmp_path, mon
         num_inference_steps=8,
         guidance_scale=3.5,
         tile_size=64,
+        width=768,
+        height=1024,
+        resize_mode="pad",
         prompt_by_input=prompt_by_input,
     )
 
@@ -110,3 +113,4 @@ def test_compare_lora_checkpoints_writes_report_and_contact_sheets(tmp_path, mon
     assert all(Path(path).is_file() for path in result["contact_sheets"])
     assert seen_prompt_maps == [prompt_by_input, prompt_by_input, prompt_by_input, prompt_by_input]
     assert "female prompt" in Path(result["report_path"]).read_text()
+    assert '"resize_mode": "pad"' in (output_dir / "manifest.json").read_text()

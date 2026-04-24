@@ -118,6 +118,9 @@ def write_report(
     steps: list[int],
     contact_sheets: list[Path],
     result_dirs: dict[str, Path],
+    width: int | None,
+    height: int | None,
+    resize_mode: str,
 ) -> Path:
     report_path = output_dir / "README.md"
     lines = [
@@ -126,6 +129,8 @@ def write_report(
         f"- Run: `{run_dir}`",
         f"- Inputs: `{input_dir}`",
         f"- Steps: `{', '.join(str(step) for step in steps)}`",
+        f"- Output size: `{width or 'config'} x {height or 'config'}`",
+        f"- Resize mode: `{resize_mode}`",
         "",
         "## Prompt",
         "",
@@ -159,6 +164,9 @@ def compare_lora_checkpoints(
     num_inference_steps: int | None,
     guidance_scale: float | None,
     tile_size: int,
+    width: int | None,
+    height: int | None,
+    resize_mode: str,
     prompt_by_input: dict[str, str] | None = None,
 ) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -187,6 +195,9 @@ def compare_lora_checkpoints(
             device=device,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
+            width=width,
+            height=height,
+            resize_mode=resize_mode,
         )
         result_dirs[label] = step_output_dir
 
@@ -215,6 +226,9 @@ def compare_lora_checkpoints(
                 "steps": steps,
                 "prompt": prompt,
                 "prompt_by_input": prompt_by_input or {},
+                "width": width,
+                "height": height,
+                "resize_mode": resize_mode,
                 "result_dirs": {label: str(path) for label, path in result_dirs.items()},
                 "contact_sheets": [str(path) for path in contact_sheets],
             },
@@ -230,6 +244,9 @@ def compare_lora_checkpoints(
         steps=steps,
         contact_sheets=contact_sheets,
         result_dirs=result_dirs,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
     )
 
     return {
@@ -252,6 +269,9 @@ def main(
     num_inference_steps: int | None = typer.Option(28, "--num-inference-steps"),
     guidance_scale: float | None = typer.Option(3.5, "--guidance-scale"),
     tile_size: int = typer.Option(320, "--tile-size"),
+    width: int | None = typer.Option(None, "--width"),
+    height: int | None = typer.Option(None, "--height"),
+    resize_mode: str = typer.Option("crop", "--resize-mode"),
 ) -> None:
     resolved_output_dir = output_dir or run_dir / "inference" / "lora_compare" / _run_label()
     result = compare_lora_checkpoints(
@@ -266,6 +286,9 @@ def main(
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
         tile_size=tile_size,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
     )
     print(result["report_path"])
 

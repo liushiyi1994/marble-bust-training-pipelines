@@ -27,6 +27,9 @@ def infer_image_main(
     device: str,
     num_inference_steps: int | None,
     guidance_scale: float | None,
+    width: int | None,
+    height: int | None,
+    resize_mode: str,
 ) -> dict[str, object]:
     target = resolve_inference_target(
         run_dir=run_dir,
@@ -44,6 +47,9 @@ def infer_image_main(
         device=device,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
     )
 
 
@@ -60,6 +66,9 @@ def main(
     device: str = typer.Option("cuda", "--device"),
     num_inference_steps: int | None = typer.Option(None, "--num-inference-steps"),
     guidance_scale: float | None = typer.Option(None, "--guidance-scale"),
+    width: int | None = typer.Option(None, "--width"),
+    height: int | None = typer.Option(None, "--height"),
+    resize_mode: str = typer.Option("crop", "--resize-mode"),
 ) -> None:
     result = infer_image_main(
         run_dir=run_dir,
@@ -74,6 +83,9 @@ def main(
         device=device,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
     )
     print(result["output_path"])
 

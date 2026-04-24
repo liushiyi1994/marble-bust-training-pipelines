@@ -50,6 +50,9 @@ def test_infer_image_main_returns_saved_output(tmp_path, monkeypatch):
         device="cuda",
         num_inference_steps=None,
         guidance_scale=None,
+        width=768,
+        height=1024,
+        resize_mode="pad",
     )
 
     assert Path(result["output_path"]) == saved_output
@@ -91,6 +94,9 @@ def test_infer_batch_main_returns_all_saved_outputs(tmp_path, monkeypatch):
         device="cuda",
         num_inference_steps=None,
         guidance_scale=None,
+        width=768,
+        height=1024,
+        resize_mode="pad",
     )
 
     assert result["count"] == 2

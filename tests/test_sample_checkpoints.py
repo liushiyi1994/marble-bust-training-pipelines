@@ -55,6 +55,9 @@ def test_sample_checkpoint_uses_run_config_and_checkpoint_output_dir(tmp_path, m
         device="cuda",
         num_inference_steps=8,
         guidance_scale=3.5,
+        width=768,
+        height=1024,
+        resize_mode="pad",
     )
 
     assert result["output_dir"] == str(run_dir / "inference" / "checkpoint_samples" / "step-500")
@@ -62,3 +65,4 @@ def test_sample_checkpoint_uses_run_config_and_checkpoint_output_dir(tmp_path, m
     assert calls[0]["target"].config_path == run_dir / "config.resolved.yaml"
     assert calls[0]["input_dir"] == input_dir
     assert calls[0]["prompt"] == "custom prompt"
+    assert calls[0]["resize_mode"] == "pad"

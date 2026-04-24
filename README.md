@@ -105,6 +105,10 @@ Generate a batch from a folder of inputs:
 
 `python scripts/infer_batch.py --run-dir /workspace/output/arch_b_qwen_edit_2511/<run-id> --input-dir /workspace/selfies/`
 
+Use portrait outputs instead of square crops:
+
+`python scripts/infer_batch.py --run-dir /workspace/output/arch_b_qwen_edit_2511/<run-id> --input-dir /workspace/selfies/ --width 768 --height 1024 --resize-mode pad`
+
 Both commands also accept a direct LoRA path instead of a run directory:
 
 `python scripts/infer_image.py --lora-path /workspace/output/arch_a_klein_4b/<run-id>/final/marble_bust_klein4b_v1.safetensors --pipeline arch_a_klein_4b --input-image /workspace/selfies/me.jpg`

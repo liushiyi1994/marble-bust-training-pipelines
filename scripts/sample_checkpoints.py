@@ -53,6 +53,9 @@ def sample_checkpoint(
     device: str,
     num_inference_steps: int | None,
     guidance_scale: float | None,
+    width: int | None = None,
+    height: int | None = None,
+    resize_mode: str = "crop",
 ) -> dict[str, object]:
     target = resolve_inference_target(
         run_dir=None,
@@ -71,6 +74,9 @@ def sample_checkpoint(
         device=device,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
     )
 
 
@@ -84,6 +90,9 @@ def watch_checkpoints(
     device: str,
     num_inference_steps: int | None,
     guidance_scale: float | None,
+    width: int | None,
+    height: int | None,
+    resize_mode: str,
     poll_seconds: float,
     stable_seconds: float,
     once: bool,
@@ -111,6 +120,9 @@ def watch_checkpoints(
                     device=device,
                     num_inference_steps=num_inference_steps,
                     guidance_scale=guidance_scale,
+                    width=width,
+                    height=height,
+                    resize_mode=resize_mode,
                 )
             except Exception as exc:
                 print(f"FAILED {checkpoint_path}: {exc}", flush=True)
@@ -135,6 +147,9 @@ def main(
     device: str = typer.Option("cuda", "--device"),
     num_inference_steps: int | None = typer.Option(None, "--num-inference-steps"),
     guidance_scale: float | None = typer.Option(None, "--guidance-scale"),
+    width: int | None = typer.Option(None, "--width"),
+    height: int | None = typer.Option(None, "--height"),
+    resize_mode: str = typer.Option("crop", "--resize-mode"),
     poll_seconds: float = typer.Option(60.0, "--poll-seconds"),
     stable_seconds: float = typer.Option(5.0, "--stable-seconds"),
     once: bool = typer.Option(False, "--once"),
@@ -150,6 +165,9 @@ def main(
         device=device,
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
+        width=width,
+        height=height,
+        resize_mode=resize_mode,
         poll_seconds=poll_seconds,
         stable_seconds=stable_seconds,
         once=once,
